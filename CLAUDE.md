@@ -1,0 +1,85 @@
+# Xổ Số Đại Lý (XSMN) — app lấy & in kết quả xổ số miền Nam
+
+App desktop (Electron, release riêng cho macOS / Windows / Linux) cho đại lý vé số:
+lấy kết quả XSMN theo ngày từ minhngoc.net.vn, xem trước và in phiếu theo mẫu đại lý
+(A4 = 4 bản, A5 = 2, A6 = 1), lưu PDF hoặc Word. Giao diện và thông báo: **tiếng Việt**.
+
+## Đọc trước khi làm
+
+1. `docs/SPEC.md`: đặc tả đầy đủ (nguồn dữ liệu, cài đặt, **số đo bố cục phiếu**, UI,
+   xuất file, đóng gói, nghiệm thu). Đây là nguồn sự thật.
+2. `design/`: giao diện đã được chủ dự án duyệt (Main = màn Kết quả, CaiDat = màn Cài
+   đặt, Phieu = phiếu in). Làm UI bám sát bản này.
+3. `cli/xsmn.sh`: bản bash đang chạy tốt. Hàm `build_docx` là chuẩn cho số đo phiếu
+   và cấu trúc .docx; `design/reference/*.pdf` là bản in mẫu do nó tạo ra.
+
+## Thư mục
+
+```
+cli/        bản dòng lệnh bash (giữ nguyên, vẫn dùng được độc lập)
+  tests/    fixture HTML của minhngoc (dùng lại cho test của app)
+design/     thiết kế UI đã duyệt (.dc.html) + reference/ PDF mẫu
+docs/       SPEC.md
+app/        app Electron (core/ = logic thuần có test, main/, preload/, renderer/)
+```
+
+## Quyết định đã chốt (đừng đổi khi chưa hỏi)
+
+- Tên kỹ thuật khi đóng gói phải **không dấu** (`Xo So Dai Ly`), tên có dấu chỉ để hiển thị
+  (xem SPEC §9: có dấu thì app mac sập).
+- Tên sản phẩm **Xổ Số Đại Lý**, logo mẫu C "Phiếu dò" (`design/logo/`); tên + logo ở
+  `app/src/shared/brand.ts`. Thư mục dữ liệu vẫn là `XSMN`.
+- Electron (không Tauri); release **từng OS riêng**; chưa ký số.
+- Thêm **bản Windows 7** (đại lý đang dùng Win7, chốt 28-10-2026): build bằng Electron 22.3.27
+  (bản cuối chạy Win7), một bộ cài cho cả 32-bit lẫn 64-bit. Vì vậy code main/core phải chạy
+  được trên **Node 16**: không dùng `AbortSignal.any`, `structuredClone`, `fetch`/`Response`
+  toàn cục; tải trang qua `main/http.ts` (có `net.fetch` thì dùng, không thì `https` của Node);
+  cheerio import từ `cheerio/slim`. Renderer phải chạy trên Chromium 108.
+- PDF bằng `webContents.printToPDF` từ HTML; Word bằng tự sinh OOXML + jszip.
+  **Không** dùng LibreOffice, **không** gọi bash.
+- Một layout engine (`core/layout`) tính bằng twips, dùng chung cho HTML và DOCX.
+- Font phiếu: Tinos/Arimo (trùng số đo Times New Roman/Arial) nhúng vào PDF.
+- Thông tin đại lý mặc định để trống. Ngày mở sẵn: trước 16h (giờ VN) là hôm qua.
+- Mặc định: PDF, khổ A4, phiếu rộng 8 cm, cách nhau 0,6 cm, cụm phiếu căn trái, chữ
+  trong bảng căn giữa, số căn phải cách lề ô 0,3 cm, cỡ số tự động, toàn màu đen.
+- Màn chính là Kết quả, không có tab; Cài đặt mở bằng nút bánh răng góc trên bên phải.
+  Màn Kết quả có ô "Số bản in" cạnh nút In… (cả hai do chủ dự án thêm 28-10-2026).
+- In: bấm In mở **bước xem trước khi in** trong app (không dựa vào hộp thoại hệ thống vì Windows
+  không có xem trước, máy chưa cài máy in thì hộp thoại không mở). Có máy in cụ thể → in thẳng;
+  không → hộp thoại hệ thống. In lỗi thì báo lỗi, **không** tự xuất/mở file PDF.
+  Cột trái màn Kết quả chia nhóm **In phiếu** và **Lưu file** riêng. Code in ở `main/print.ts`.
+
+## Lưu ý kỹ thuật
+
+- HTML minhngoc **thiếu `</td>`** giữa các cột đài; chỉ lấy bảng `table.bkqmiennam`
+  ĐẦU TIÊN; mã đài lấy từ `href` (`/xo-so-mien-nam/<slug>.html`); kiểm tra `td.ngay`
+  đúng ngày yêu cầu, sai ngày nghĩa là chưa có kết quả.
+- Ngày/thứ luôn tính theo giờ Việt Nam (Asia/Ho_Chi_Minh), không theo múi giờ máy.
+- DOCX: trong `w:tblPr` thứ tự phải là `tblW, jc, tblBorders, tblLayout, tblCellMar`.
+- Electron: `contextIsolation` bật, `nodeIntegration` tắt; mạng và file chỉ ở main process.
+- `cli/xsmn.sh` phải chạy được với bash 3.2 (macOS): không mảng kết hợp, không `${x,,}`.
+- Viết tên biến dính chữ trong bash bằng ngoặc nhọn: `${Y}_${PAPER}`, không phải `$Y_$PAPER`.
+
+## Lệnh
+
+Bản bash (cần curl, xmllint, zip; PDF cần LibreOffice):
+
+```bash
+cd cli && ./xsmn.sh -d 26-10-2026 --html tests/fixture-26-10-2026.html -f docx   # chạy với fixture, không cần mạng
+```
+
+App: dùng `make` ở gốc repo (gõ `make` để xem đủ danh sách).
+
+```bash
+make install    # npm install trong app/
+make dev        # chạy app, tự nạp lại khi sửa code
+make check      # typecheck + unit test
+make build      # build vào app/out
+make build-win7 # build cho Electron 22 (Node 16, Chromium 108) — bản Win7
+make golden     # sinh lại document.xml mẫu từ cli/xsmn.sh khi build_docx đổi
+make dist-mac   # đóng gói (dist-win, dist-win7, dist-linux) → app/release/
+make version V=1.1.0   # đặt phiên bản mới; nhớ thêm mục vào CHANGELOG.md rồi tag v1.1.0
+```
+
+Terminal của VS Code đặt sẵn `ELECTRON_RUN_AS_NODE=1` làm Electron chạy như Node;
+Makefile đã gỡ biến này. Chạy thử với dữ liệu riêng: `XSMN_USER_DATA=/thư/mục make dev`.

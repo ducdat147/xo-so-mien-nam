@@ -1,0 +1,46 @@
+{
+  "name": "xsmn",
+  "productName": "Xổ Số Đại Lý",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lấy và in kết quả xổ số miền Nam",
+  "license": "UNLICENSED",
+  "main": "./out/main/main.js",
+  "scripts": {
+    "dev": "electron-vite dev -w",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dist": "electron-vite build && electron-builder --publish never",
+    "dist:mac": "electron-vite build && electron-builder --mac --publish never",
+    "dist:win": "electron-vite build && electron-builder --win --publish never",
+    "dist:linux": "electron-vite build && electron-builder --linux --publish never",
+    "dist:win7": "electron-vite build && electron-builder --win --config electron-builder.win7.yml --publish never"
+  },
+  "dependencies": {
+    "@fontsource/arimo": "^5.3.0",
+    "@fontsource/tinos": "^5.3.0",
+    "cheerio": "^1.2.0",
+    "jszip": "^3.10.2"
+  },
+  "devDependencies": {
+    "@fontsource/be-vietnam-pro": "^5.3.0",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "45.0.0",
+    "electron-builder": "^26.17.0",
+    "electron-vite": "^6.0.0",
+    "fast-xml-parser": "^5.11.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.5",
+    "vitest": "^4.1.12"
+  },
+  "author": "Xổ Số Đại Lý",
+  "homepage": "https://example.invalid/xo-so-dai-ly"
+}

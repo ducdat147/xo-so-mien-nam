@@ -1,0 +1,79 @@
+# ============================================================
+#  Cấu hình cho xsmn.sh
+#  Đổi tên file này thành xsmn.conf, đặt cạnh xsmn.sh
+#  (hoặc ~/.config/xsmn/xsmn.conf, hoặc chỉ định bằng -c).
+#  Cú pháp: KHOA=giá trị   (dòng bắt đầu bằng # là chú thích)
+#  Khoá nào bỏ trống / không khai báo thì dùng mặc định.
+# ============================================================
+
+# ---------- Thông tin đại lý (in ở đầu mỗi phiếu) ----------
+AGENT_LABEL="Đại lý vé số:"
+AGENT_NAME="ĐỨC QUYẾT"
+# Địa chỉ - script tự thêm "ĐC: " ở đầu
+AGENT_ADDRESS="Chợ Tapao - Đ.Kho - T.Linh – B.Thuận"
+AGENT_FAX="0623 881 519"
+# Nhiều số điện thoại cách nhau bằng dấu |  -> in thành "DĐ: ...  DĐ: ..."
+AGENT_PHONES="01212 019 343 | 0983 019 343"
+# Muốn tự viết nguyên dòng liên hệ thì dùng khoá này (ghi đè FAX/PHONES):
+# AGENT_CONTACT="Fax: 0623 881 519  DĐ: 0983 019 343"
+
+# Ghi chú chữ đỏ nhỏ dưới chữ "Tư" ở cột Giải (để trống = không in)
+# NOTE="Cần so lại với fax của c.ty tại 8011102"
+
+# ---------- Chọn đài ----------
+# Mã đài: tp-hcm dong-thap ca-mau ben-tre vung-tau bac-lieu dong-nai can-tho
+#         soc-trang tay-ninh an-giang binh-thuan vinh-long binh-duong tra-vinh
+#         long-an binh-phuoc hau-giang tien-giang kien-giang da-lat
+#
+# Không khai báo gì  -> lấy đủ các đài quay trong ngày.
+# STATIONS           -> danh sách đài quan tâm cho mọi ngày (script tự lấy
+#                       những đài trong danh sách có quay hôm đó).
+# STATIONS_T2..T7,CN -> danh sách riêng cho từng thứ (ưu tiên hơn STATIONS).
+#
+# STATIONS="tp-hcm, dong-thap, ca-mau, ben-tre"
+# STATIONS_T7="tp-hcm, long-an, binh-phuoc"
+# STATIONS_CN="tien-giang, kien-giang"
+
+# ---------- Tên đài in trên phiếu (mặc định đã viết tắt sẵn) ----------
+# NAME_tp-hcm="TP.HCM"
+# NAME_dong-thap="Đ.Tháp"
+# NAME_ca-mau="C.Mau"
+
+# ---------- Xuất file ----------
+# Định dạng: pdf (mặc định) | docx | both (xuất cả hai)
+# PDF cần LibreOffice: macOS "brew install --cask libreoffice",
+#                      Ubuntu "sudo apt install libreoffice-writer"
+OUTPUT_FORMAT=pdf
+# Khổ giấy in: A4 = 4 bản/tờ (mặc định, xếp 2x2)
+#              A5 = 2 bản/tờ (A5 nằm ngang, 2 bản cạnh nhau)
+#              A6 = 1 bản/tờ
+PAPER=A4
+# Đường dẫn LibreOffice nếu script không tự tìm thấy
+# SOFFICE="/Applications/LibreOffice.app/Contents/MacOS/soffice"
+
+# ---------- Bố cục ----------
+# Bề ngang mỗi phiếu (cm), mặc định 8. Tối đa ~9,3 (A4/A5) hoặc 8,9 (A6).
+CARD_WIDTH_CM=8
+# Khoảng cách giữa các phiếu (cm), mặc định 0.6. Đặt 0 nếu muốn dính sát nhau
+CARD_GAP_CM=0.6
+# Căn lề (left / center / right)
+#   CARD_ALIGN  : vị trí cả phiếu (bảng + đầu phiếu) trên trang (mặc định left)
+#   ALIGN_TEXT  : chữ trong bảng - "Giải", tên giải, tên đài  (mặc định center)
+#   ALIGN_NUMBER: các số kết quả                              (mặc định right)
+CARD_ALIGN=left
+ALIGN_TEXT=center
+ALIGN_NUMBER=right
+# Khoảng cách từ số kết quả tới đường kẻ phải của ô (cm), mặc định 0.3
+NUMBER_PAD_RIGHT_CM=0.3
+# Cỡ chữ số kết quả (pt). Bỏ trống = tự chọn cỡ lớn nhất vừa phiếu.
+# NUMBER_FONT_PT=13
+# FONT="Times New Roman"
+# Thư mục lưu file xuất (mặc định: thư mục hiện tại)
+# OUTPUT_DIR="~/Documents/xoso"
+
+# Màu (mã hex, không có #). Mặc định tất cả đen 000000.
+# Ví dụ muốn chữ đầu phiếu xanh đậm, tên giải/ĐB đỏ như mẫu cũ:
+# COLOR_TEXT=1F2A6B      # chữ phần đầu phiếu
+# COLOR_ACCENT=E00000    # tên giải, tên đài, giải đặc biệt, ghi chú
+# COLOR_BORDER=7F8FB5    # đường kẻ bảng
+# COLOR_NUMBER=000000    # các số trúng thưởng

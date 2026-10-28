@@ -1,0 +1,75 @@
+# Đóng gói (SPEC §9). Chưa ký số: README ghi cách mở lần đầu trên từng hệ điều hành.
+appId: vn.xsmn.app
+# Tên kỹ thuật không dấu: Electron 45 trên macOS sập ngay khi mở nếu tên gói .app / tiến trình
+# phụ có dấu; thư mục cài trên Windows cũng nên không dấu. Tên hiển thị "Xổ Số Đại Lý" đặt riêng
+# ở từng hệ điều hành bên dưới (Info.plist, lối tắt, mục gỡ cài đặt, file .desktop).
+productName: Xo So Dai Ly
+# Tên file cài không dấu, tránh lỗi đường dẫn trên máy cũ
+artifactName: xo-so-dai-ly-${version}-${os}-${arch}.${ext}
+copyright: Xổ Số Đại Lý
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.map'
+  # font in chỉ cần bản woff2 + css của 3 subset; bỏ phần còn lại cho nhẹ
+  - '!node_modules/@fontsource/*/files/*.woff'
+asar: true
+electronLanguages: [vi, en-US]
+
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  category: public.app-category.business
+  icon: build/icon.png
+  executableName: XoSoDaiLy
+  # Chỉ đặt tên hiển thị. CFBundleName phải trùng tên kỹ thuật vì Electron dựa vào nó để tìm
+  # các tiến trình phụ (Helper); đặt có dấu là app sập ngay khi mở.
+  extendInfo:
+    CFBundleDisplayName: Xổ Số Đại Lý
+    LSHasLocalizedDisplayName: true
+  # Chưa có chứng chỉ Apple: ký tạm (ad-hoc), không notarize. Không ký gì thì máy Apple Silicon
+  # từ chối chạy (app bị kill ngay khi mở).
+  identity: '-'
+  hardenedRuntime: false
+dmg:
+  title: Xổ Số Đại Lý ${version}
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.png
+  executableName: xo-so-dai-ly
+  # không ký số: không cần signtool
+  signAndEditExecutable: true
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Xổ Số Đại Lý
+  uninstallDisplayName: Xổ Số Đại Lý
+  language: '1066'
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  icon: build/icon.png
+  executableName: xo-so-dai-ly
+  category: Office
+  synopsis: Lấy và in kết quả xổ số miền Nam
+  maintainer: Xổ Số Đại Lý
+  desktop:
+    entry:
+      Name: Xổ Số Đại Lý
+      Comment: Lấy và in kết quả xổ số miền Nam
+deb:
+  packageName: xo-so-dai-ly

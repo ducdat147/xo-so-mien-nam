@@ -1,0 +1,93 @@
+# Phát hành (SPEC §9): build từng hệ điều hành trên máy của GitHub rồi gắn file cài vào Release.
+# - Đẩy tag v* (vd v1.1.0) → build đủ cả 4 loại.
+# - Chạy tay (Actions → Release → Run workflow) → chọn hệ điều hành + nhập tag.
+# Tag phải trùng version trong app/package.json (đặt bằng `make version V=…`).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      os:
+        description: Hệ điều hành cần build
+        type: choice
+        options: [all, mac, windows, win7, linux]
+        default: all
+      tag:
+        description: Tag phát hành, ví dụ v1.0.0 (phải trùng version trong app/package.json)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - id: plan
+        env:
+          OS: ${{ github.event_name == 'workflow_dispatch' && inputs.os || 'all' }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          all='[
+            {"name":"mac","runner":"macos-latest","script":"dist:mac"},
+            {"name":"windows","runner":"windows-latest","script":"dist:win"},
+            {"name":"win7","runner":"windows-latest","script":"dist:win7"},
+            {"name":"linux","runner":"ubuntu-latest","script":"dist:linux"}
+          ]'
+          if [ "$OS" = all ]; then m=$(echo "$all" | jq -c .); else m=$(echo "$all" | jq -c --arg os "$OS" '[.[] | select(.name == $os)]'); fi
+          echo "matrix=$m" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    name: build (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: app
+    env:
+      TAG: ${{ needs.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Tag khớp version trong package.json
+        run: |
+          v=$(node -p "require('./package.json').version")
+          if [ "v$v" != "$TAG" ]; then echo "::error::Tag $TAG không khớp version $v trong app/package.json"; exit 1; fi
+
+      - run: npm ci
+      - run: npm test
+      - name: Đóng gói ${{ matrix.name }}
+        run: npm run ${{ matrix.script }}
+
+      - name: Gắn file cài vào GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          files=(release/*.dmg release/*.exe release/*.AppImage release/*.deb)
+          [ ${#files[@]} -gt 0 ] || { echo "::error::Không thấy file cài trong app/release"; exit 1; }
+          # Nhiều job chạy song song: job nào tới trước thì tạo Release, các job sau chỉ gắn thêm file
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            notes=$(awk -v v="${TAG#v}" '$0 ~ "^## "v" " {f=1; next} /^## / {f=0} f' ../CHANGELOG.md)
+            gh release create "$TAG" --title "Xổ Số Đại Lý $TAG" --notes "${notes:-Xem CHANGELOG.md}" || true
+          fi
+          gh release upload "$TAG" "${files[@]}" --clobber

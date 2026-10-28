@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>XSMN - Kết quả</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;family=Tinos:wght@400;700&amp;display=swap">
+<style>
+body{margin:0;background:#F3F4F6}
+a{color:#16181D}a:hover{color:#000000}
+button{font-family:inherit}
+input{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-direction: column; background: #F3F4F6; color: #16181D; font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 14px">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; padding: 12px 24px; background: #FFFFFF; border-bottom: 1px solid #DDE0E6">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="8" fill="{{accent}}"></rect><path d="M9 11h14M9 16h14M9 21h9" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"></path></svg>
+      <div style="display: flex; flex-direction: column">
+        <span style="font-weight: 700; font-size: 16px; line-height: 20px">XSMN</span>
+        <span style="font-size: 12px; line-height: 16px; color: #5B6270">Kết quả xổ số miền Nam</span>
+      </div>
+    </div>
+    <nav aria-label="Màn hình" style="display: flex; gap: 4px">
+      <a href="Main.dc.html" aria-current="page" style="padding: 8px 14px; border-radius: 8px; background: #16181D; color: #FFFFFF; text-decoration: none; font-weight: 600">Kết quả</a>
+      <a href="CaiDat.dc.html" style="padding: 8px 14px; border-radius: 8px; color: #16181D; text-decoration: none; font-weight: 500">Cài đặt</a>
+    </nav>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; color: #5B6270; font-size: 12px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg>
+      <span>Nguồn: minhngoc.net.vn</span>
+    </div>
+  </header>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 24px; padding: 24px; align-items: flex-start">
+
+    <aside style="flex: 1 1 300px; max-width: 340px; display: flex; flex-direction: column; gap: 16px">
+
+      <section style="background: #FFFFFF; border: 1px solid #DDE0E6; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label for="ngay" style="font-weight: 600; font-size: 13px">Ngày xổ</label>
+          <div style="display: flex; gap: 8px">
+            <input id="ngay" type="date" value="{{dateValue}}" style="flex: 1; min-width: 0; height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #CBD0D8; border-radius: 8px; font-size: 14px; color: #16181D; background: #FFFFFF">
+          </div>
+          <div style="display: flex; gap: 8px">
+            <button type="button" style="flex: 1; height: 36px; border: 1px solid #CBD0D8; border-radius: 8px; background: #FFFFFF; color: #16181D; font-size: 13px; cursor: pointer">Hôm nay</button>
+            <button type="button" style="flex: 1; height: 36px; border: 1px solid #CBD0D8; border-radius: 8px; background: #FFFFFF; color: #16181D; font-size: 13px; cursor: pointer">Hôm qua</button>
+          </div>
+          <p style="margin: 2px 0 0; font-size: 12px; line-height: 17px; color: #5B6270">{{dayLine}}</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span id="kho-label" style="font-weight: 600; font-size: 13px">Khổ giấy</span>
+          <div role="group" aria-labelledby="kho-label" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+            <sc-for list="{{paperBtns}}" as="b" hint-placeholder-count="3">
+              <button type="button" aria-pressed="{{b.pressed}}" onClick="{{b.pick}}" style="{{b.style}}">
+                <span style="font-weight: 700; font-size: 14px; line-height: 18px">{{b.label}}</span>
+                <span style="font-size: 11px; line-height: 14px">{{b.sub}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span id="dd-label" style="font-weight: 600; font-size: 13px">Định dạng khi lưu</span>
+          <div role="group" aria-labelledby="dd-label" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+            <sc-for list="{{fmtBtns}}" as="b" hint-placeholder-count="3">
+              <button type="button" aria-pressed="{{b.pressed}}" onClick="{{b.pick}}" style="{{b.style}}">
+                <span style="font-weight: 600; font-size: 13px; line-height: 18px">{{b.label}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <label style="display: flex; align-items: center; gap: 10px; min-height: 32px; cursor: pointer">
+          <input type="checkbox" checked="{{blank}}" onChange="{{toggleBlank}}" style="width: 18px; height: 18px; margin: 0; accent-color: #16181D">
+          <span style="font-size: 13px">In phiếu trống (chưa có số)</span>
+        </label>
+
+        <button type="button" style="height: 44px; border: none; border-radius: 8px; background: #16181D; color: #FFFFFF; font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"></path><path d="M21 3v6h-6"></path></svg>
+          Lấy kết quả
+        </button>
+      </section>
+
+      <section aria-live="polite" style="{{statusStyle}}">
+        <div style="display: flex; align-items: flex-start; gap: 10px">
+          <sc-if value="{{isOk}}" hint-placeholder-val="{{ true }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.7 2.7L16 10"></path></svg>
+          </sc-if>
+          <sc-if value="{{isNone}}" hint-placeholder-val="{{ false }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+          </sc-if>
+          <sc-if value="{{isLive}}" hint-placeholder-val="{{ false }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="3"></circle><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4"></path></svg>
+          </sc-if>
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+            <strong style="font-size: 14px; line-height: 20px">{{statusTitle}}</strong>
+            <span style="font-size: 12px; line-height: 17px">{{statusDesc}}</span>
+          </div>
+        </div>
+        <sc-if value="{{isLive}}" hint-placeholder-val="{{ false }}">
+          <div style="height: 6px; border-radius: 3px; background: #BFDBFE; overflow: hidden" role="progressbar" aria-valuemin="0" aria-valuemax="9" aria-valuenow="5" aria-label="Số giải đã quay">
+            <div style="width: 55%; height: 6px; background: #1E40AF"></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{showAuto}}" hint-placeholder-val="{{ false }}">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer">
+            <input type="checkbox" checked="{{ true }}" style="width: 16px; height: 16px; margin: 0">
+            <span>Tự lấy lại mỗi 2 phút đến khi đủ</span>
+          </label>
+        </sc-if>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #DDE0E6; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+        <button type="button" style="height: 48px; border: none; border-radius: 8px; background: {{accent}}; color: #FFFFFF; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"></path><rect x="3" y="9" width="18" height="8" rx="2"></rect><path d="M6 14h12v7H6z"></path></svg>
+          In…
+        </button>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+          <button type="button" style="height: 44px; border: 1px solid #CBD0D8; border-radius: 8px; background: #FFFFFF; color: #16181D; font-weight: 600; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"></path></svg>
+            Lưu PDF
+          </button>
+          <button type="button" style="height: 44px; border: 1px solid #CBD0D8; border-radius: 8px; background: #FFFFFF; color: #16181D; font-weight: 600; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"></path></svg>
+            Lưu Word
+          </button>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: #5B6270">
+          <span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Lưu vào ~/Documents/XSMN</span>
+          <button type="button" style="flex: none; height: 32px; padding: 0 10px; border: none; border-radius: 6px; background: #F3F4F6; color: #16181D; font-size: 12px; font-weight: 600; cursor: pointer">Mở thư mục</button>
+        </div>
+      </section>
+    </aside>
+
+    <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+        <div role="group" aria-label="Chế độ xem" style="display: flex; padding: 4px; gap: 4px; background: #E5E7EB; border-radius: 10px">
+          <sc-for list="{{viewBtns}}" as="v" hint-placeholder-count="2">
+            <button type="button" aria-pressed="{{v.pressed}}" onClick="{{v.pick}}" style="{{v.style}}">{{v.label}}</button>
+          </sc-for>
+        </div>
+        <span style="font-size: 13px; color: #5B6270">{{paperCaption}}</span>
+      </div>
+
+      <sc-if value="{{showPreview}}" hint-placeholder-val="{{ true }}">
+        <div style="background: #E5E7EB; border-radius: 12px; padding: 28px; overflow: auto; display: flex; justify-content: center">
+          <div style="{{previewWrapStyle}}">
+            <div style="{{pageStyle}}">
+              <sc-for list="{{cards}}" as="c" hint-placeholder-count="4">
+                <div style="{{c.style}}">
+                  <dc-import name="Phieu" card="{{c.card}}" hint-size="302px,520px"></dc-import>
+                </div>
+              </sc-for>
+              <sc-if value="{{showBlankTag}}" hint-placeholder-val="{{ false }}">
+                <div style="position: absolute; right: 24px; bottom: 24px; padding: 8px 14px; border-radius: 999px; background: #16181D; color: #FFFFFF; font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 18px; font-weight: 600">Phiếu trống</div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showTable}}" hint-placeholder-val="{{ false }}">
+        <div style="background: #FFFFFF; border: 1px solid #DDE0E6; border-radius: 12px; overflow-x: auto">
+          <div style="min-width: 620px">
+            <div style="display: grid; grid-template-columns: 120px repeat(3, minmax(0, 1fr)); border-bottom: 1px solid #DDE0E6; background: #F9FAFB">
+              <div style="padding: 14px 16px; font-weight: 600; color: #5B6270; font-size: 13px">Giải</div>
+              <sc-for list="{{stations}}" as="s" hint-placeholder-count="3">
+                <div style="padding: 12px 16px; border-left: 1px solid #DDE0E6; display: flex; flex-direction: column; gap: 2px">
+                  <span style="font-weight: 700; font-size: 15px">{{s.full}}</span>
+                  <span style="font-size: 12px; color: #5B6270">{{s.code}}</span>
+                </div>
+              </sc-for>
+            </div>
+            <sc-for list="{{tableRows}}" as="r" hint-placeholder-count="9">
+              <div style="{{r.rowStyle}}">
+                <div style="padding: 12px 16px; font-weight: 600; font-size: 14px">{{r.label}}</div>
+                <sc-for list="{{r.cells}}" as="cell" hint-placeholder-count="3">
+                  <div style="padding: 10px 16px; border-left: 1px solid #EEF0F3; display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: center">
+                    <sc-for list="{{cell.nums}}" as="n">
+                      <span style="{{r.numStyle}}">{{n}}</span>
+                    </sc-for>
+                    <sc-if value="{{cell.pending}}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size: 13px; color: #5B6270; font-style: italic">Chờ quay…</span>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"trangThai":{"editor":"enum","options":["Đã có kết quả","Đang quay","Chưa có kết quả"],"default":"Đã có kết quả"},"accent":{"editor":"color","options":["#C2410C","#1D4ED8","#047857","#16181D"],"default":"#C2410C"},"$preview":{"width":1280,"height":900}}'>
+var PRIZES = [['8', 'Tám'], ['7', 'Bảy'], ['6', 'Sáu'], ['5', 'Năm'], ['4', 'Tư'], ['3', 'Ba'], ['2', 'Nhì'], ['1', 'Nhất'], ['db', 'ĐB']];
+var LINES = { '8': 1, '7': 1, '6': 3, '5': 1, '4': 7, '3': 2, '2': 1, '1': 1, 'db': 1 };
+var WEIGHT = { 'hdr': 10, '8': 10, '7': 10, '6': 26, '5': 10, '4': 52, '3': 18, '2': 10, '1': 10, 'db': 12 };
+var KQ = [
+  { name: 'TP.HCM', full: 'TP. Hồ Chí Minh', code: 'XSHCM · 10E2', r: { '8': ['74'], '7': ['010'], '6': ['3452', '9687', '3427'], '5': ['3987'], '4': ['78899', '13421', '69122', '62142', '48887', '90540', '68727'], '3': ['79446', '35158'], '2': ['54677'], '1': ['78600'], 'db': ['472899'] } },
+  { name: 'Đ.Tháp', full: 'Đồng Tháp', code: 'XSDT · V43', r: { '8': ['46'], '7': ['770'], '6': ['1705', '2828', '6898'], '5': ['1682'], '4': ['07328', '63114', '84005', '11826', '10469', '70207', '57564'], '3': ['83001', '88374'], '2': ['90107'], '1': ['63631'], 'db': ['987692'] } },
+  { name: 'C.Mau', full: 'Cà Mau', code: 'XSCM · 26-T10K4', r: { '8': ['67'], '7': ['961'], '6': ['2030', '5543', '1489'], '5': ['6468'], '4': ['87410', '61423', '44332', '34318', '21473', '36608', '28649'], '3': ['64980', '84581'], '2': ['27463'], '1': ['83940'], 'db': ['929097'] } }
+];
+var AGENT = { label: 'Đại lý vé số:', name: 'ĐỨC QUYẾT', addr: 'ĐC: Chợ Tapao - Đ.Kho - T.Linh – B.Thuận', contact: 'Fax: 0623 881 519  DĐ: 01212 019 343  DĐ: 0983 019 343' };
+var PAPERS = {
+  A4: { w: 793.7, h: 1122.5, cardH: 520.2, scale: 0.6, sub: '4 bản/tờ', pos: [[30.2, 30.2], [355.3, 30.2], [30.2, 573.1], [355.3, 573.1]], caption: 'A4 đứng · 4 bản · mỗi phiếu 8 × 13,6 cm · cách nhau 0,6 cm' },
+  A5: { w: 793.7, h: 559.4, cardH: 498.9, scale: 0.9, sub: '2 bản/tờ', pos: [[30.2, 30.2], [355.3, 30.2]], caption: 'A5 ngang · 2 bản · mỗi phiếu 8 × 13,2 cm · cách nhau 0,6 cm' },
+  A6: { w: 396.9, h: 559.4, cardH: 498.9, scale: 1.1, sub: '1 bản/tờ', pos: [[30.2, 30.2]], caption: 'A6 đứng · 1 bản · phiếu 8 × 13,2 cm' }
+};
+
+function buildCard(paper, mode) {
+  var p = PAPERS[paper];
+  var numPx = paper === 'A4' ? 18 : 17.3;
+  var dbPx = numPx + 1.3;
+  var L = numPx * 1.1, LDB = dbPx * 1.1, pad = 4;
+  var tableH = p.cardH - 80 - 11;
+  var base = 18 * L + LDB + 10 * pad;
+  var extra = Math.max(0, tableH - base);
+  var n = KQ.length;
+  var cols = '48px repeat(' + n + ', minmax(0, 1fr))';
+  var filled = mode === 'live' ? 5 : (mode === 'blank' ? 0 : 9);
+  var rows = PRIZES.map(function (pr, i) {
+    var k = pr[0], isDb = k === 'db';
+    var h = (isDb ? LDB : LINES[k] * L) + pad + extra * WEIGHT[k] / 168;
+    return {
+      label: pr[1],
+      style: 'display: grid; grid-template-columns: ' + cols + '; height: ' + h.toFixed(1) + 'px; border-top: 1px solid #000000; box-sizing: border-box',
+      labelStyle: 'display: flex; justify-content: center; padding-top: 2px; font-weight: 700; font-size: ' + (isDb ? 18.7 : 16) + 'px; line-height: ' + (isDb ? 24 : 20) + 'px',
+      numStyle: 'font-weight: 700; white-space: nowrap; font-size: ' + (isDb ? dbPx : numPx) + 'px; line-height: ' + (isDb ? LDB : L).toFixed(1) + 'px',
+      cells: KQ.map(function (s) { return { nums: i < filled ? s.r[k] : [] }; })
+    };
+  });
+  return {
+    h: p.cardH,
+    label: AGENT.label, name: AGENT.name, addr: AGENT.addr, contact: AGENT.contact,
+    title: mode === 'none' ? 'Thứ Ba (27-10-2026)' : 'Thứ Hai (26-10-2026)',
+    headStyle: 'display: grid; grid-template-columns: ' + cols + '; height: ' + (L + pad + extra * 10 / 168).toFixed(1) + 'px',
+    stations: KQ.map(function (s) { return { name: s.name }; }),
+    rows: rows
+  };
+}
+
+function segStyle(on, tall) {
+  return 'display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: ' + (tall ? 52 : 40) + 'px; border-radius: 8px; cursor: pointer; padding: 6px 4px; ' +
+    (on ? 'background: #16181D; color: #FFFFFF; border: 1px solid #16181D' : 'background: #FFFFFF; color: #16181D; border: 1px solid #CBD0D8');
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { paper: 'A4', fmt: 'PDF', view: 'preview', blank: false };
+  }
+  renderVals() {
+    var self = this;
+    var st = this.state;
+    var tt = this.props.trangThai ?? 'Đã có kết quả';
+    var mode = tt === 'Đang quay' ? 'live' : (tt === 'Chưa có kết quả' ? 'none' : 'ok');
+    var cardMode = (mode === 'none' || st.blank) ? 'blank' : mode;
+    var p = PAPERS[st.paper];
+    var card = buildCard(st.paper, cardMode);
+    var cards = p.pos.map(function (xy) {
+      return { style: 'position: absolute; left: ' + xy[0] + 'px; top: ' + xy[1] + 'px; width: 302px; height: ' + p.cardH + 'px', card: card };
+    });
+
+    var statusMap = {
+      ok: { t: 'Đã có kết quả đầy đủ', d: 'Thứ Hai 26-10-2026 · 3 đài · 54 số · cập nhật 16:42', bg: '#F0FDF4', fg: '#166534', bd: '#BBF7D0' },
+      live: { t: 'Đang quay trực tiếp', d: 'Đã có 5/9 giải (từ giải Tám đến giải Tư). Ô chưa quay sẽ để trống.', bg: '#EFF6FF', fg: '#1E40AF', bd: '#BFDBFE' },
+      none: { t: 'Chưa có kết quả ngày 27-10-2026', d: 'Xổ số miền Nam quay lúc 16h15 – 16h35. Vẫn in được phiếu trống.', bg: '#FFFBEB', fg: '#92400E', bd: '#FDE68A' }
+    };
+    var sm = statusMap[mode];
+
+    var stations = mode === 'none'
+      ? [{ full: 'Bến Tre', code: 'XSBT' }, { full: 'Vũng Tàu', code: 'XSVT' }, { full: 'Bạc Liêu', code: 'XSBL' }]
+      : KQ.map(function (s) { return { full: s.full, code: s.code }; });
+    var filled = mode === 'live' ? 5 : (mode === 'none' ? 0 : 9);
+    var tableRows = PRIZES.map(function (pr, i) {
+      var isDb = pr[0] === 'db';
+      return {
+        label: isDb ? 'Đặc biệt' : 'Giải ' + pr[1].toLowerCase(),
+        rowStyle: 'display: grid; grid-template-columns: 120px repeat(3, minmax(0, 1fr)); border-bottom: 1px solid #EEF0F3' + (isDb ? '; background: #FFF7ED' : ''),
+        numStyle: "font-family: Tinos, 'Times New Roman', serif; font-weight: 700; font-size: " + (isDb ? 28 : 21) + 'px; line-height: ' + (isDb ? 34 : 28) + 'px; color: ' + (isDb ? (self.props.accent ?? '#C2410C') : '#16181D'),
+        cells: KQ.map(function (s) { return { nums: i < filled ? s.r[pr[0]] : [], pending: i >= filled }; })
+      };
+    });
+
+    return {
+      accent: this.props.accent ?? '#C2410C',
+      dateValue: mode === 'none' ? '2026-10-27' : '2026-10-26',
+      dayLine: mode === 'none' ? 'Thứ Ba · Bến Tre, Vũng Tàu, Bạc Liêu' : 'Thứ Hai · TP.HCM, Đồng Tháp, Cà Mau',
+      paperBtns: ['A4', 'A5', 'A6'].map(function (k) {
+        return { label: k, sub: PAPERS[k].sub, pressed: String(st.paper === k), style: segStyle(st.paper === k, true), pick: function () { self.setState({ paper: k }); } };
+      }),
+      fmtBtns: ['PDF', 'Word', 'Cả hai'].map(function (k) {
+        return { label: k, pressed: String(st.fmt === k), style: segStyle(st.fmt === k, false), pick: function () { self.setState({ fmt: k }); } };
+      }),
+      viewBtns: [['preview', 'Xem trước bản in'], ['table', 'Bảng kết quả']].map(function (v) {
+        var on = st.view === v[0];
+        return { label: v[1], pressed: String(on), pick: function () { self.setState({ view: v[0] }); },
+          style: 'height: 36px; padding: 0 14px; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; ' + (on ? 'background: #FFFFFF; color: #16181D; box-shadow: 0 1px 2px rgba(0,0,0,0.12)' : 'background: transparent; color: #3F4652') };
+      }),
+      blank: st.blank,
+      toggleBlank: function () { self.setState({ blank: !st.blank }); },
+      isOk: mode === 'ok', isLive: mode === 'live', isNone: mode === 'none', showAuto: mode !== 'ok',
+      statusTitle: sm.t, statusDesc: sm.d,
+      statusStyle: 'border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; background: ' + sm.bg + '; color: ' + sm.fg + '; border: 1px solid ' + sm.bd,
+      showPreview: st.view === 'preview', showTable: st.view === 'table',
+      paperCaption: p.caption,
+      previewWrapStyle: 'position: relative; flex: none; width: ' + (p.w * p.scale).toFixed(0) + 'px; height: ' + (p.h * p.scale).toFixed(0) + 'px',
+      pageStyle: 'position: absolute; left: 0; top: 0; width: ' + p.w + 'px; height: ' + p.h + 'px; background: #FFFFFF; transform: scale(' + p.scale + '); transform-origin: 0 0; box-shadow: 0 2px 10px rgba(0,0,0,0.18)',
+      cards: cards,
+      showBlankTag: cardMode === 'blank',
+      stations: stations,
+      tableRows: tableRows
+    };
+  }
+}
+</script>
+</body>
+</html>

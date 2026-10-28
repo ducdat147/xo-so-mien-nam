@@ -1,0 +1,15 @@
+node_modules/
+dist/
+out/
+release/
+*.log
+.DS_Store
+# file xuất thử của bản bash
+xsmn_*.pdf
+xsmn_*.docx
+!design/reference/*.pdf
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+/.trail/
+

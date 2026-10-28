@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Phiếu kết quả</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;family=Tinos:wght@400;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="{{rootStyle}}">
+  <div style="{{headWrapStyle}}">
+    <sc-for list="{{head}}" as="ln" hint-placeholder-count="4">
+      <div style="{{ln.style}}">
+        <sc-for list="{{ln.runs}}" as="r" hint-placeholder-count="1">
+          <span style="{{r.style}}">{{r.text}}</span>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+  <div style="border: 1px solid #000000; box-sizing: border-box">
+    <div style="{{headStyle}}">
+      <div style="display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px">Giải</div>
+      <sc-for list="{{stations}}" as="s" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; justify-content: center; border-left: 1px solid #000000; font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden">{{s.name}}</div>
+      </sc-for>
+    </div>
+    <sc-for list="{{rows}}" as="row" hint-placeholder-count="9">
+      <div style="{{row.style}}">
+        <div style="{{row.labelStyle}}">
+          <span>{{row.label}}</span>
+          <sc-if value="{{row.hasNote}}" hint-placeholder-val="{{ false }}">
+            <span style="{{row.noteStyle}}">{{row.note}}</span>
+          </sc-if>
+        </div>
+        <sc-for list="{{row.cells}}" as="cell" hint-placeholder-count="3">
+          <div style="border-left: 1px solid #000000; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; padding-right: 11.3px; min-width: 0; overflow: hidden">
+            <sc-for list="{{cell.nums}}" as="n">
+              <div style="{{row.numStyle}}">{{n}}</div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"card":{"editor":null,"tsType":"object"},"$preview":{"width":302,"height":520}}'>
+var PRIZES = [['8', 'Tám'], ['7', 'Bảy'], ['6', 'Sáu'], ['5', 'Năm'], ['4', 'Tư'], ['3', 'Ba'], ['2', 'Nhì'], ['1', 'Nhất'], ['db', 'ĐB']];
+var LINES = { '8': 1, '7': 1, '6': 3, '5': 1, '4': 7, '3': 2, '2': 1, '1': 1, 'db': 1 };
+var WEIGHT = { '8': 10, '7': 10, '6': 26, '5': 10, '4': 52, '3': 18, '2': 10, '1': 10, 'db': 12 };
+var SAMPLE = [
+  { name: 'TP.HCM', r: { '8': ['74'], '7': ['010'], '6': ['3452', '9687', '3427'], '5': ['3987'], '4': ['78899', '13421', '69122', '62142', '48887', '90540', '68727'], '3': ['79446', '35158'], '2': ['54677'], '1': ['78600'], 'db': ['472899'] } },
+  { name: 'Đ.Tháp', r: { '8': ['46'], '7': ['770'], '6': ['1705', '2828', '6898'], '5': ['1682'], '4': ['07328', '63114', '84005', '11826', '10469', '70207', '57564'], '3': ['83001', '88374'], '2': ['90107'], '1': ['63631'], 'db': ['987692'] } },
+  { name: 'C.Mau', r: { '8': ['67'], '7': ['961'], '6': ['2030', '5543', '1489'], '5': ['6468'], '4': ['87410', '61423', '44332', '34318', '21473', '36608', '28649'], '3': ['64980', '84581'], '2': ['27463'], '1': ['83940'], 'db': ['929097'] } }
+];
+
+// Phần đầu phiếu mặc định (khi nơi dùng chỉ truyền chữ, không truyền cỡ chữ)
+function defaultHead(c) {
+  var lines = [];
+  function line(runs, lh, after) {
+    lines.push({ style: 'font-weight: 700; white-space: pre-wrap; line-height: ' + lh + 'px; margin-bottom: ' + after + 'px', runs: runs });
+  }
+  function run(text, px) { return { text: text, style: 'font-size: ' + px + 'px' }; }
+  line([run(c.label + ' ', 10.7), run(c.name, 18.7)], 25.3, 4);
+  if (c.addr) line([run(c.addr, 10)], 12, 0);
+  if (c.contact) line([run(c.contact, 10)], 12, 0);
+  line([run(c.title, 17.3)], 22.7, 4);
+  return { lines: lines, h: 80 };
+}
+
+function sampleCard() {
+  var cardH = 520.2, numPx = 18, dbPx = 19.3;
+  var L = numPx * 1.1, LDB = dbPx * 1.1, pad = 4;
+  var extra = Math.max(0, cardH - 91 - (18 * L + LDB + 10 * pad));
+  var cols = '48px repeat(3, minmax(0, 1fr))';
+  return {
+    h: cardH,
+    label: 'Đại lý vé số:', name: 'ĐỨC QUYẾT',
+    addr: 'ĐC: Chợ Tapao - Đ.Kho - T.Linh – B.Thuận',
+    contact: 'Fax: 0623 881 519  DĐ: 01212 019 343  DĐ: 0983 019 343',
+    title: 'Thứ Hai (26-10-2026)',
+    headStyle: 'display: grid; grid-template-columns: ' + cols + '; height: ' + (L + pad + extra * 10 / 168).toFixed(1) + 'px',
+    stations: SAMPLE.map(function (s) { return { name: s.name }; }),
+    rows: PRIZES.map(function (pr) {
+      var k = pr[0], isDb = k === 'db';
+      var h = (isDb ? LDB : LINES[k] * L) + pad + extra * WEIGHT[k] / 168;
+      return {
+        label: pr[1],
+        style: 'display: grid; grid-template-columns: ' + cols + '; height: ' + h.toFixed(1) + 'px; border-top: 1px solid #000000; box-sizing: border-box',
+        labelStyle: 'display: flex; flex-direction: column; align-items: center; padding-top: 2px; font-weight: 700; font-size: ' + (isDb ? 18.7 : 16) + 'px; line-height: ' + (isDb ? 24 : 20) + 'px',
+        numStyle: 'font-weight: 700; white-space: nowrap; font-size: ' + (isDb ? dbPx : numPx) + 'px; line-height: ' + (isDb ? LDB : L).toFixed(1) + 'px',
+        cells: SAMPLE.map(function (s) { return { nums: s.r[k] }; })
+      };
+    })
+  };
+}
+
+class Component extends DCLogic {
+  renderVals() {
+    var c = this.props.card || sampleCard();
+    var hd = c.head ? { lines: c.head, h: c.headH } : defaultHead(c);
+    return {
+      rootStyle: "width: 302px; height: " + c.h + "px; box-sizing: border-box; background: #FFFFFF; color: #000000; font-family: Tinos, 'Times New Roman', serif; display: flex; flex-direction: column",
+      headWrapStyle: 'flex: none; height: ' + hd.h.toFixed(1) + 'px; display: flex; flex-direction: column; align-items: center; text-align: center; overflow: hidden',
+      head: hd.lines,
+      headStyle: c.headStyle, stations: c.stations, rows: c.rows
+    };
+  }
+}
+</script>
+</body>
+</html>
