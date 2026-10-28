@@ -388,7 +388,9 @@ Bên phải:
 
 ### 7.2 Màn Cài đặt (`design/CaiDat.dc.html`)
 
-Cột trái là các thẻ, cột phải (≈340px) là **Xem trước phiếu** (một bản, cập nhật
+Cột trái là các thẻ, **thu gọn / mở rộng được** (bấm tiêu đề hoặc Tab + Enter, mũi tên chỉ trạng
+thái; nút "Thu gọn tất cả / Mở rộng tất cả" ở đầu; nhớ trạng thái trong máy cho lần mở sau). Cột
+phải (≈340px) là **Xem trước phiếu** (một bản, cập nhật
 ngay khi sửa; dùng kết quả gần nhất đã tải, nếu chưa có thì dữ liệu mẫu 26-10-2026)
 kèm dòng "Cỡ số kết quả hiện tại: 13,5 pt (tự chỉnh để vừa phiếu)".
 

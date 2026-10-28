@@ -38,6 +38,7 @@ Mỗi lần phát hành, thêm một mục mới lên trên cùng.
   và bố cục bản in ra file chữ có chú thích, nhập lại ra y nguyên (sao lưu hoặc chép sang máy khác).
   Máy in và thư mục lưu không nằm trong file (riêng từng máy). File `xsmn.conf` của bản dòng lệnh
   cũ vẫn nhập được.
+- Các thẻ ở màn Cài đặt thu gọn / mở rộng được (nhớ cho lần mở sau), có nút thu gọn / mở rộng tất cả.
 - Lịch chọn ngày chỉ cho chọn tới hôm nay.
 - Bỏ bản dòng lệnh bash (`cli/`); app là bản duy nhất.
 - Bỏ dòng **Fax** và **ghi chú dưới chữ "Tư"** khỏi phiếu và màn Cài đặt. Dòng liên hệ chỉ còn các

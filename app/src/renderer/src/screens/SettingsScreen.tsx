@@ -81,19 +81,75 @@ const Close = () => (
   </svg>
 )
 
-function Card(props: { id: string; title: string; desc?: string; badge?: string; children: ReactNode }) {
+const Chevron = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M6 9l6 6 6-6" />
+  </svg>
+)
+
+/** Thẻ cài đặt thu gọn / mở rộng được: bấm tiêu đề (hoặc Tab + Enter) để đổi. */
+function Card(props: {
+  id: string
+  title: string
+  desc?: string
+  badge?: string
+  open: boolean
+  onToggle: () => void
+  children: ReactNode
+}) {
+  const { id, title, desc, badge, open, onToggle, children } = props
   return (
-    <section className="card set-card" aria-labelledby={props.id}>
-      <div className="set-head">
-        <div className="set-title-row">
-          <h2 id={props.id}>{props.title}</h2>
-          {props.badge && <span className="badge">{props.badge}</span>}
-        </div>
-        {props.desc && <p className="set-desc">{props.desc}</p>}
+    <section className={`card set-card${open ? '' : ' collapsed'}`} aria-labelledby={id}>
+      <h2 className="set-h2">
+        <button type="button" className="set-toggle" aria-expanded={open} aria-controls={`${id}-body`} onClick={onToggle}>
+          <Chevron />
+          <span id={id}>{title}</span>
+          {badge && <span className="badge">{badge}</span>}
+        </button>
+      </h2>
+      <div id={`${id}-body`} className="set-body" hidden={!open}>
+        {desc && <p className="set-desc">{desc}</p>}
+        {children}
       </div>
-      {props.children}
     </section>
   )
+}
+
+const CARD_IDS = ['h-daily', 'h-dai', 'h-in', 'h-mayin', 'h-luu'] as const
+const COLLAPSED_KEY = 'xsmn.settings.collapsed'
+
+/** Thẻ nào đang thu gọn; nhớ trong máy cho lần mở sau (lỗi bộ nhớ thì coi như mở hết). */
+function useCollapsed() {
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]'))
+    } catch {
+      return new Set()
+    }
+  })
+  /** Cập nhật từ trạng thái mới nhất (bấm nhanh nhiều thẻ liền nhau không ghi đè nhau) rồi lưu lại. */
+  const update = (fn: (prev: Set<string>) => Set<string>) =>
+    setCollapsed((prev) => {
+      const next = fn(prev)
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]))
+      } catch {
+        // không lưu được thì thôi, chỉ mất trạng thái lần sau
+      }
+      return next
+    })
+  const toggle = (id: string) =>
+    update((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  return {
+    card: (id: (typeof CARD_IDS)[number]) => ({ id, open: !collapsed.has(id), onToggle: () => toggle(id) }),
+    allCollapsed: collapsed.size === CARD_IDS.length,
+    setAll: (collapse: boolean) => update(() => new Set(collapse ? CARD_IDS : []))
+  }
 }
 
 export interface SettingsScreenProps {
@@ -113,6 +169,7 @@ export interface SettingsScreenProps {
 export function SettingsScreen(props: SettingsScreenProps) {
   const { draft, setDraft, replaceDraft, dirty, saving, onSave, lastResult, version } = props
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  const cards = useCollapsed()
   const fontCss = useFontCss(draft.print.font)
   const { printers, loading: findingPrinters, refresh: refreshPrinters } = usePrinters()
 
@@ -183,8 +240,13 @@ export function SettingsScreen(props: SettingsScreenProps) {
   return (
     <div className="settings">
       <div className="settings-main">
+        <div className="settings-tools">
+          <button type="button" className="btn ghost small-btn" onClick={() => cards.setAll(!cards.allCollapsed)}>
+            {cards.allCollapsed ? 'Mở rộng tất cả' : 'Thu gọn tất cả'}
+          </button>
+        </div>
         <Card
-          id="h-daily"
+          {...cards.card('h-daily')}
           title="Thông tin đại lý"
           desc="Các dòng in ở đầu mỗi phiếu. Bấm biểu tượng con mắt để hiện hoặc ẩn từng dòng, chỉnh cỡ chữ theo pt. Phần đầu phiếu cao lên thì bảng kết quả tự co lại cho vừa."
         >
@@ -272,7 +334,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
         </Card>
 
         <Card
-          id="h-dai"
+          {...cards.card('h-dai')}
           title="Đài cần in"
           desc="Kéo thả để đổi thứ tự; thứ tự từ trái sang phải là thứ tự cột trên phiếu. Bỏ chọn hết các đài của một thứ thì ngày đó in đủ các đài."
         >
@@ -324,7 +386,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
           </details>
         </Card>
 
-        <Card id="h-in" title="Bản in">
+        <Card {...cards.card('h-in')} title="Bản in">
           <div className="grid-2 wide">
             <Segmented id="l-kho" label="Khổ giấy mặc định" options={PAPER_OPTIONS} value={draft.print.paper}
               onChange={(v) => setDraft((d) => { d.print.paper = v })} variant="tall" />
@@ -438,7 +500,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
           </div>
         </Card>
 
-        <Card id="h-mayin" title="Máy in" desc="Lựa chọn mặc định cho nhóm In phiếu ở màn Kết quả. Chọn máy in ở màn Kết quả cũng được lưu lại. Mặc định bấm In sẽ mở bước xem trước khi in.">
+        <Card {...cards.card('h-mayin')} title="Máy in" desc="Lựa chọn mặc định cho nhóm In phiếu ở màn Kết quả. Chọn máy in ở màn Kết quả cũng được lưu lại. Mặc định bấm In sẽ mở bước xem trước khi in.">
           <PrinterSelect
             id="f-printer"
             label="Máy in mặc định"
@@ -477,7 +539,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
           </div>
         </Card>
 
-        <Card id="h-luu" title="Lưu file">
+        <Card {...cards.card('h-luu')} title="Lưu file">
           <div className="field">
             <label htmlFor="f-dir" className="field-label">Thư mục lưu</label>
             <div className="row">

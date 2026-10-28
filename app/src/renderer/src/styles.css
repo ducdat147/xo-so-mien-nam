@@ -291,7 +291,18 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 
 .set-card { padding: 20px; }
 .set-head { display: flex; flex-direction: column; gap: 4px; }
-.set-head h2 { margin: 0; font-size: 16px; line-height: 22px; }
+.set-h2 { margin: 0; font-size: 16px; line-height: 22px; }
+.set-toggle {
+  display: flex; align-items: center; gap: 8px; width: calc(100% + 16px); margin: -8px; padding: 8px;
+  border: none; border-radius: 8px; background: transparent; font-size: 16px; font-weight: 700; text-align: left;
+}
+.set-toggle:hover { background: var(--bg); }
+.set-toggle svg { flex: none; color: var(--muted); transition: transform 0.15s; }
+.set-toggle[aria-expanded='false'] svg { transform: rotate(-90deg); }
+.set-body { display: flex; flex-direction: column; gap: 16px; }
+.set-body > .set-desc { margin-top: -10px; }
+.set-card.collapsed { padding-top: 14px; padding-bottom: 14px; }
+.settings-tools { display: flex; justify-content: flex-end; margin-bottom: -8px; }
 .set-title-row { display: flex; align-items: center; gap: 10px; }
 .set-desc { margin: 0; font-size: 13px; line-height: 19px; color: var(--muted); }
 .badge {
