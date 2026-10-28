@@ -117,9 +117,9 @@ export function App() {
           </span>
           <button
             type="button"
-            className="icon-btn"
+            className="icon-btn tip tip-below tip-end"
             aria-label="Cài đặt"
-            title={inSettings ? 'Đóng Cài đặt' : 'Cài đặt'}
+            data-tip={inSettings ? 'Đóng Cài đặt' : 'Cài đặt'}
             aria-pressed={inSettings}
             onClick={() => (inSettings ? leaveSettings() : setScreen('settings'))}
           >

@@ -74,6 +74,8 @@ export interface XsmnApi {
   saveSettings(s: Settings): Promise<Settings>
   /** Chọn file xsmn.conf rồi nhập đè lên `base`. null = người dùng huỷ. */
   importConf(base: Settings): Promise<ConfImportResult | null>
+  /** Hộp thoại "Lưu thành" rồi ghi cài đặt ra file .conf. Trả đường dẫn, null = huỷ. */
+  exportConf(settings: Settings): Promise<string | null>
   /** Hộp thoại chọn thư mục lưu. null = huỷ. */
   chooseOutputDir(current: string): Promise<string | null>
   /** Máy in đang cài trên máy. */
@@ -93,6 +95,7 @@ export const IPC = {
   openOutputDir: 'xsmn:open-output-dir',
   saveSettings: 'xsmn:save-settings',
   importConf: 'xsmn:import-conf',
+  exportConf: 'xsmn:export-conf',
   chooseOutputDir: 'xsmn:choose-output-dir',
   listPrinters: 'xsmn:list-printers',
   updateSettings: 'xsmn:update-settings'

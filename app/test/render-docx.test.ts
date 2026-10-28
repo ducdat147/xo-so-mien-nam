@@ -1,11 +1,12 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import JSZip from 'jszip'
 import { XMLValidator } from 'fast-xml-parser'
 import { describe, expect, it } from 'vitest'
 import { parseResults } from '../src/core/parse'
 import { documentXml, renderDocx } from '../src/core/render-docx'
-import { defaultSettings, importConf, type Paper, type Settings } from '../src/core/settings'
+import { importConf } from '../src/core/conf'
+import { defaultSettings, type Paper, type Settings } from '../src/core/settings'
 import { buildSheet } from '../src/core/sheet'
 import { agentSettings, D24, D26, GOLDEN, HTML_24, HTML_26 } from './helpers'
 
@@ -13,15 +14,17 @@ const day26 = parseResults(HTML_26, D26)
 const day24 = parseResults(HTML_24, D24)
 const golden = (name: string) => readFileSync(join(GOLDEN, `${name}.document.xml`), 'utf8')
 
-/** Cài đặt tương đương chạy bản bash với golden/custom.conf (bash không có config thì không có fax). */
+/** Cài đặt tương đương chạy bản bash với golden/custom.conf. */
 function customSettings(): Settings {
-  // cỡ chữ đầu phiếu như bản bash; bash không có config thì không có fax
+  // cỡ chữ đầu phiếu như bản bash
   const base = agentSettings()
-  base.header.fax.value = ''
   return importConf(readFileSync(join(GOLDEN, 'custom.conf'), 'utf8'), base).settings
 }
 
-describe('render-docx giống hệt build_docx của cli/xsmn.sh', () => {
+// test/golden/*.document.xml: bản chụp file Word do bản bash cũ (build_docx, nay đã bỏ) sinh ra.
+// App phải ra giống hệt từng ký tự. Cố ý đổi bố cục thì cập nhật bản chụp: `make golden`
+// (UPDATE_GOLDEN=1) rồi xem kỹ diff trước khi commit.
+describe('render-docx giống hệt bản chụp chuẩn (từ bản bash cũ)', () => {
   const cases: [string, () => Settings, typeof day26, typeof D26, Paper][] = [
     ['default-A4', agentSettings, day26, D26, 'A4'],
     ['default-A5', agentSettings, day26, D26, 'A5'],
@@ -33,6 +36,7 @@ describe('render-docx giống hệt build_docx của cli/xsmn.sh', () => {
   for (const [name, settings, day, date, paper] of cases) {
     it(name, () => {
       const { layout } = buildSheet(settings(), day, { date, paper, blank: false })
+      if (process.env.UPDATE_GOLDEN) writeFileSync(join(GOLDEN, `${name}.document.xml`), documentXml(layout))
       expect(documentXml(layout)).toBe(golden(name))
     })
   }
@@ -93,12 +97,47 @@ describe('renderDocx', () => {
   it('ẩn hết đầu phiếu, khoảng cách 0: vẫn có đoạn ngăn giữa hai bảng', () => {
     const s = defaultSettings()
     for (const h of Object.values(s.header)) h.show = false
-    s.print.cardGapCm = 0
+    s.print.cardGapXCm = 0
+    s.print.cardGapYCm = 0
     const { layout } = buildSheet(s, day26, { date: D26, paper: 'A4', blank: false })
     const xml = documentXml(layout)
     expect(XMLValidator.validate(xml)).toBe(true)
     expect(xml).not.toContain('</w:tbl><w:tbl>')
     expect(xml.match(/w:type="column"/g)).toHaveLength(1)
+  })
+
+  it('số căn giữa-dưới, chữ căn trái-giữa: vAlign và thụt lề theo phía được căn', () => {
+    const s = agentSettings()
+    s.print.numberCell = { padXCm: 0.3, padYCm: 0.2, alignX: 'center', alignY: 'bottom' }
+    s.print.textCell = { padXCm: 0.3, padYCm: 0.05, alignX: 'left', alignY: 'center' }
+    const xml = documentXml(buildSheet(s, day26, { date: D26, paper: 'A4', blank: false }).layout)
+    expect(XMLValidator.validate(xml)).toBe(true)
+    expect(xml).toContain('<w:ind w:left="142" w:right="142"/><w:jc w:val="center"/>')
+    expect(xml).toContain('<w:ind w:left="142" w:right="0"/><w:jc w:val="left"/>')
+    expect(xml).toContain('<w:vAlign w:val="bottom"/>')
+    // padding dọc của số: khoảng sau đoạn cuối ô (căn dưới)
+    expect(xml).toContain('w:before="0" w:after="83" w:line=')
+  })
+
+  it('khoảng cách ngang vào w:cols, dọc vào đoạn đệm giữa 2 phiếu', () => {
+    const s = agentSettings()
+    s.print.cardGapXCm = 1
+    s.print.cardGapYCm = 0.2
+    const xml = documentXml(buildSheet(s, day26, { date: D26, paper: 'A4', blank: false }).layout)
+    expect(xml).toContain('<w:cols w:num="2" w:space="567"/>')
+    expect(xml).toContain('w:line="113" w:lineRule="exact"')
+  })
+
+  it('chiều cao phiếu tự chọn: XML hợp lệ, hàng bảng thấp lại', () => {
+    const s = agentSettings()
+    s.print.cardHeightCm = 10
+    const short = documentXml(buildSheet(s, day26, { date: D26, paper: 'A4', blank: false }).layout)
+    const full = documentXml(buildSheet(agentSettings(), day26, { date: D26, paper: 'A4', blank: false }).layout)
+    expect(XMLValidator.validate(short)).toBe(true)
+    const rowSum = (xml: string) =>
+      [...xml.matchAll(/<w:trHeight w:val="(\d+)"/g)].slice(0, 10).reduce((n, m) => n + Number(m[1]), 0)
+    expect(rowSum(short)).toBeLessThan(rowSum(full))
+    expect(rowSum(short) + 1200 + 160).toBeLessThanOrEqual(5670)
   })
 
   it('phiếu trống: ô số có một đoạn rỗng, chữ đặc biệt được escape', () => {

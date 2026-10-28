@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  addDays, defaultDrawDate, formatDate, isBeforeDraw, parseDate, sameDate, todayVN, toIsoDate, weekday, weekdayName, type DateVN
+  addDays, compareDate, defaultDrawDate, formatDate, isBeforeDraw, parseDate, sameDate, todayVN, toIsoDate, weekday, weekdayName, type DateVN
 } from '../../../core/dates'
 import { PAPER_SPECS, TWIPS_PER_CM, viNumber, type SheetLayout } from '../../../core/layout'
 import { renderHtml } from '../../../core/render-html'
@@ -55,7 +55,12 @@ function paperCaption(l: SheetLayout): string {
   const size = `${cm(l.cardW)} × ${cm(l.cardH)} cm`
   const orient = l.page.orient === 'portrait' ? 'đứng' : 'ngang'
   if (l.copies === 1) return `${l.paper} ${orient} · 1 bản · phiếu ${size}`
-  return `${l.paper} ${orient} · ${l.copies} bản · mỗi phiếu ${size} · cách nhau ${cm(l.gap)} cm`
+  // Chỉ nói tới chiều có nhiều phiếu: A5 chỉ có 2 cột, A4 có cả cột lẫn hàng
+  const gaps =
+    l.nrow > 1 && l.ncol > 1 && l.gapX !== l.gapY
+      ? `cách ngang ${cm(l.gapX)} cm, dọc ${cm(l.gapY)} cm`
+      : `cách nhau ${cm(l.ncol > 1 ? l.gapX : l.gapY)} cm`
+  return `${l.paper} ${orient} · ${l.copies} bản · mỗi phiếu ${size} · ${gaps}`
 }
 
 type Busy = null | 'print' | OutputFormat
@@ -272,9 +277,13 @@ export function ResultsScreen(props: {
               type="date"
               className="input"
               value={toIsoDate(date)}
+              // Chỉ chọn tới hôm nay (giờ VN); gõ tay ngày sau đó thì đưa về hôm nay
+              max={toIsoDate(todayVN())}
               onChange={(e) => {
                 const d = parseDate(e.target.value)
-                if (d) setDate(d)
+                if (!d) return
+                const today = todayVN()
+                setDate(compareDate(d, today) > 0 ? today : d)
               }}
             />
             <div className="row">

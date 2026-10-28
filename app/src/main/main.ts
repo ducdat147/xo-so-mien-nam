@@ -1,13 +1,14 @@
 // Main process: cửa sổ, IPC. Mạng và file chỉ đi qua đây (renderer chạy sandbox).
 
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions } from 'electron'
-import { mkdir, readFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
 import { formatDate, isValidDate, type DateVN } from '../core/dates'
 import { loadFontCss } from '../core/fonts'
 import { renderHtml } from '../core/render-html'
-import { FONTS, FORMATS, importConf, normalizeSettings, PAPERS, type FontName, type Settings } from '../core/settings'
+import { exportConf, importConf } from '../core/conf'
+import { FONTS, FORMATS, normalizeSettings, PAPERS, type FontName, type Settings } from '../core/settings'
 import { readSettingsFile, writeSettingsFile } from '../core/settings-file'
 import { buildSheet, type SheetRequest } from '../core/sheet'
 import { loadResults, type LoadedResult } from '../core/source'
@@ -153,15 +154,33 @@ function registerIpc(): void {
   ipcMain.handle(IPC.importConf, async (e, base: unknown) => {
     const win = BrowserWindow.fromWebContents(e.sender) ?? undefined
     const opts = {
-      title: 'Nhập cài đặt từ xsmn.conf',
+      title: 'Nhập cài đặt từ file .conf',
       properties: ['openFile' as const],
-      filters: [{ name: 'Cấu hình xsmn.sh', extensions: ['conf', 'txt', 'example'] }, { name: 'Mọi file', extensions: ['*'] }]
+      filters: [{ name: 'File cấu hình (.conf)', extensions: ['conf', 'txt', 'example'] }, { name: 'Mọi file', extensions: ['*'] }]
     }
     const r = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
     if (r.canceled || !r.filePaths[0]) return null
     const file = r.filePaths[0]
     const out = importConf(await readFile(file, 'utf8'), normalizeSettings(base))
     return { ...out, file }
+  })
+
+  ipcMain.handle(IPC.exportConf, async (e, raw: unknown) => {
+    const win = BrowserWindow.fromWebContents(e.sender) ?? undefined
+    const opts = {
+      title: 'Xuất cài đặt ra file .conf',
+      defaultPath: join(app.getPath('documents'), 'xo-so-dai-ly.conf'),
+      filters: [{ name: 'File cấu hình (.conf)', extensions: ['conf'] }]
+    }
+    const r = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+    if (r.canceled || !r.filePath) return null
+    const now = new Date(Date.now() + 7 * 3600 * 1000) // giờ Việt Nam
+    const when =
+      `${String(now.getUTCDate()).padStart(2, '0')}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${now.getUTCFullYear()} ` +
+      `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`
+    await writeFile(r.filePath, exportConf(normalizeSettings(raw), { appName: APP_NAME, version: app.getVersion(), when }), 'utf8')
+    exportedFiles.add(r.filePath)
+    return r.filePath
   })
 
   ipcMain.handle(IPC.chooseOutputDir, async (e, current: unknown) => {

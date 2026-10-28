@@ -1,7 +1,7 @@
 // Trang HTML in phiếu (xem trước, PDF, in) từ layout (SPEC §8.1).
 // Mọi kích thước lấy từ layout (twips ÷ 20 = pt) nên bản PDF khớp bản Word.
 
-import type { SheetLayout } from './layout'
+import type { CellBox, SheetLayout } from './layout'
 import { CELL_MARGIN, DB_LABEL_SIZE, LABEL_AFTER, LABEL_SIZE, SPACER_H } from './layout'
 import { PRIZES } from './stations'
 import type { FontName } from './settings'
@@ -49,9 +49,9 @@ function tableHtml(l: SheetLayout): string {
   const [hdr, ...prizeRows] = t.rows
 
   let rows = `<div class="tr" style="height:${pt(hdr.height)};${cols}">`
-  rows += `<div class="td mid t-text"><p style="font-size:${hp(LABEL_SIZE)}">${hdr.label}</p></div>`
+  rows += `<div class="td hd t-text"><p style="font-size:${hp(LABEL_SIZE)}">${hdr.label}</p></div>`
   for (const st of l.stations) {
-    rows += `<div class="td mid t-text"><p style="font-size:${hp(t.stationSize)}">${htmlEscape(st.short)}</p></div>`
+    rows += `<div class="td hd t-text"><p style="font-size:${hp(t.stationSize)}">${htmlEscape(st.short)}</p></div>`
   }
   rows += '</div>'
 
@@ -60,17 +60,14 @@ function tableHtml(l: SheetLayout): string {
     const isDb = k === 'db'
     rows += `<div class="tr" style="height:${pt(row.height)};${cols}">`
     const labStyle = isDb ? `font-size:${hp(DB_LABEL_SIZE)}` : `font-size:${hp(LABEL_SIZE)};margin-bottom:${pt(LABEL_AFTER)}`
-    let lab = `<p style="${labStyle}">${row.label}</p>`
-    if (k === '4' && l.note) {
-      lab += `<p class="note" style="font-size:${hp(l.note.size)};line-height:${pt(l.note.lineH)}">${htmlEscape(l.note.text)}</p>`
-    }
-    rows += `<div class="td t-text">${lab}</div>`
+    const lab = `<p style="${labStyle}">${row.label}</p>`
+    rows += `<div class="td lab t-text">${lab}</div>`
     const numStyle = isDb
       ? `font-size:${hp(t.dbSize)};line-height:${pt(t.dbLine)}`
       : `font-size:${hp(t.numberSize)};line-height:${pt(t.numberLine)}`
     for (const st of l.stations) {
       const nums = st.prizes[k].map((n) => `<p style="${numStyle}">${htmlEscape(n)}</p>`).join('')
-      rows += `<div class="td mid n-text${isDb ? ' db' : ''}">${nums}</div>`
+      rows += `<div class="td n-text${isDb ? ' db' : ''}">${nums}</div>`
     }
     rows += '</div>'
   })
@@ -81,17 +78,26 @@ function cardHtml(l: SheetLayout, withIndent: boolean): string {
   return `<section class="card">${headerHtml(l, withIndent)}${tableHtml(l)}</section>`
 }
 
+const JUSTIFY = { top: 'flex-start', center: 'center', bottom: 'flex-end' } as const
+
+/** Lề trong ô = lề mặc định + phần padding dư (cùng con số với thụt lề / khoảng đoạn bên Word). */
+function cellPadding(box: CellBox, vertical: boolean): string {
+  const m = CELL_MARGIN
+  const top = m.top + (vertical ? box.padTop : 0)
+  const bottom = m.bottom + (vertical ? box.padBottom : 0)
+  return `padding:${pt(top)} ${pt(m.right + box.indentRight)} ${pt(bottom)} ${pt(m.left + box.indentLeft)}`
+}
+
 function styles(l: SheetLayout, mode: 'sheet' | 'card'): string {
   const c = l.colors
   const t = l.table
-  const m = CELL_MARGIN
   const page =
     mode === 'sheet'
       ? `@page{size:${l.page.widthMm}mm ${l.page.heightMm}mm;margin:0}
 .page{width:${l.page.widthMm}mm;height:${l.page.heightMm}mm;box-sizing:border-box;overflow:hidden;
-padding:${pt(l.margin.top)} ${pt(l.margin.right)} ${pt(l.margin.bottom)} ${pt(l.margin.left)};display:flex;column-gap:${pt(l.gap)}}
+padding:${pt(l.margin.top)} ${pt(l.margin.right)} ${pt(l.margin.bottom)} ${pt(l.margin.left)};display:flex;column-gap:${pt(l.gapX)}}
 .col{flex:none;width:${pt(l.colW)};display:flex;flex-direction:column}
-.gap{flex:none;height:${pt(l.gap)}}`
+.gap{flex:none;height:${pt(l.gapY)}}`
       : `.page{width:${pt(l.cardW)};height:${pt(l.cardH)};overflow:hidden}`
   return `${page}
 html,body{margin:0;padding:0;background:#fff}
@@ -104,12 +110,13 @@ p{margin:0}
 .tbl{outline:0.75pt solid #${c.border};outline-offset:-0.375pt}
 .tr{display:grid;box-sizing:border-box;overflow:hidden}
 .tr+.tr{border-top:0.75pt solid #${c.border}}
-.td{box-sizing:border-box;min-width:0;overflow:hidden;padding:${pt(m.top)} ${pt(m.right)} ${pt(m.bottom)} ${pt(m.left)};color:#${c.accent}}
+.td{box-sizing:border-box;min-width:0;overflow:hidden;display:flex;flex-direction:column;color:#${c.accent}}
 .td+.td{border-left:0.75pt solid #${c.border}}
-.td.mid{display:flex;flex-direction:column;justify-content:center}
-.t-text{text-align:${l.alignText};overflow-wrap:anywhere}
-.n-text{text-align:${l.alignNumber};color:#${c.number}}
-.n-text p{white-space:nowrap;padding-right:${pt(t.numberIndent)}}
+.td.hd{justify-content:center;${cellPadding(t.text, false)}}
+.t-text{text-align:${t.text.alignX};overflow-wrap:anywhere}
+.td.lab{justify-content:${JUSTIFY[t.text.alignY]};${cellPadding(t.text, true)}}
+.n-text{text-align:${t.number.alignX};color:#${c.number};justify-content:${JUSTIFY[t.number.alignY]};${cellPadding(t.number, true)}}
+.n-text p{white-space:nowrap}
 .n-text.db{color:#${c.accent}}`
 }
 
@@ -123,7 +130,7 @@ export function renderHtml(l: SheetLayout, opts: HtmlOptions = {}): string {
     for (let c = 0; c < l.ncol; c++) {
       const cards: string[] = []
       for (let r = 0; r < l.nrow; r++) cards.push(cardHtml(l, true))
-      cols.push(`<div class="col">${cards.join(l.gap > 0 ? '<div class="gap"></div>' : '')}</div>`)
+      cols.push(`<div class="col">${cards.join(l.gapY > 0 ? '<div class="gap"></div>' : '')}</div>`)
     }
     body = `<div class="page">${cols.join('')}</div>`
   }

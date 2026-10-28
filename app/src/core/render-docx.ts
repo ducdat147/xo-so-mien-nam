@@ -1,11 +1,11 @@
-// Sinh .docx (OOXML + jszip) từ layout — port build_docx của cli/xsmn.sh (SPEC §8.2).
+// Sinh .docx (OOXML + jszip) từ layout — port build_docx của bản bash cũ (đã bỏ; SPEC §8.2).
 // Giữ nguyên cấu trúc XML của bản bash: với cùng cài đặt, document.xml giống hệt từng ký tự.
 
 import JSZip from 'jszip'
-import type { SheetLayout } from './layout'
+import type { CellBox, SheetLayout } from './layout'
 import { CELL_MARGIN, BORDER_SZ, DB_LABEL_SIZE, LABEL_AFTER, LABEL_SIZE, SPACER_H } from './layout'
 import { PRIZES } from './stations'
-import type { Align } from './settings'
+import type { Align, VAlign } from './settings'
 
 const W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 const XML_DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
@@ -22,12 +22,36 @@ function run(text: string, color: string, size: number): string {
 }
 
 /** Đoạn văn; exact = chiều cao dòng cố định (twips), bỏ trống = dòng đơn tự động. */
-function para(align: Align, after: number, runs: string, exact?: number, ind = ''): string {
+function para(align: Align, after: number, runs: string, exact?: number, ind = '', before = 0): string {
   const ln = exact ? `w:line="${exact}" w:lineRule="exact"` : 'w:line="240" w:lineRule="auto"'
-  return `<w:p><w:pPr><w:spacing w:before="0" w:after="${after}" ${ln}/>${ind}<w:jc w:val="${align}"/></w:pPr>${runs}</w:p>`
+  return `<w:p><w:pPr><w:spacing w:before="${before}" w:after="${after}" ${ln}/>${ind}<w:jc w:val="${align}"/></w:pPr>${runs}</w:p>`
 }
 
-function cell(width: number, vAlign: 'top' | 'center', paras: string): string {
+/** Một đoạn trong ô: nội dung + khoảng sau riêng của nó. */
+interface CellPara {
+  runs: string
+  after: number
+  exact?: number
+}
+
+/**
+ * Các đoạn của một ô theo CellBox: căn ngang, thụt lề ở phía được căn, khoảng đệm dọc thành
+ * khoảng trước đoạn đầu / sau đoạn cuối. `alwaysInd`: luôn ghi w:ind (ô số, giống bản bash).
+ */
+function cellParas(box: CellBox, items: CellPara[], alwaysInd: boolean, vertical = true): string {
+  const ind =
+    alwaysInd || box.indentLeft || box.indentRight ? `<w:ind w:left="${box.indentLeft}" w:right="${box.indentRight}"/>` : ''
+  if (!items.length) return para(box.alignX, 0, '', undefined, ind)
+  return items
+    .map((it, i) => {
+      const before = vertical && i === 0 ? box.padTop : 0
+      const after = it.after + (vertical && i === items.length - 1 ? box.padBottom : 0)
+      return para(box.alignX, after, it.runs, it.exact, ind, before)
+    })
+    .join('')
+}
+
+function cell(width: number, vAlign: VAlign, paras: string): string {
   return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/><w:vAlign w:val="${vAlign}"/></w:tcPr>${paras}</w:tc>`
 }
 
@@ -60,24 +84,26 @@ function tableXml(l: SheetLayout): string {
     `<w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="${height}" w:hRule="exact"/></w:trPr>${cells}</w:tr>`
 
   const [hdr, ...prizeRows] = t.rows
-  let cells = cell(t.labW, 'center', para(l.alignText, 0, run(hdr.label, accent, LABEL_SIZE)))
-  for (const st of l.stations) cells += cell(t.stW, 'center', para(l.alignText, 0, run(st.short, accent, t.stationSize)))
+  // Hàng tiêu đề (Giải, tên đài) luôn giữa ô theo chiều dọc; chỉ lấy căn ngang + padding ngang của chữ
+  const head = (runs: string) => cellParas(t.text, [{ runs, after: 0 }], false, false)
+  let cells = cell(t.labW, 'center', head(run(hdr.label, accent, LABEL_SIZE)))
+  for (const st of l.stations) cells += cell(t.stW, 'center', head(run(st.short, accent, t.stationSize)))
   x += tr(hdr.height, cells)
 
-  const numInd = `<w:ind w:left="0" w:right="${t.numberIndent}"/>`
   PRIZES.forEach((k, i) => {
     const isDb = k === 'db'
-    let lab = isDb
-      ? para(l.alignText, 0, run(prizeRows[i].label, accent, DB_LABEL_SIZE))
-      : para(l.alignText, LABEL_AFTER, run(prizeRows[i].label, accent, LABEL_SIZE))
-    if (k === '4' && l.note) lab += para(l.alignText, 0, run(l.note.text, accent, l.note.size), l.note.lineH)
-    let row = cell(t.labW, 'top', lab)
+    const lab: CellPara[] = [
+      isDb
+        ? { runs: run(prizeRows[i].label, accent, DB_LABEL_SIZE), after: 0 }
+        : { runs: run(prizeRows[i].label, accent, LABEL_SIZE), after: LABEL_AFTER }
+    ]
+    let row = cell(t.labW, t.text.alignY, cellParas(t.text, lab, false))
     for (const st of l.stations) {
       const color = isDb ? accent : number
       const size = isDb ? t.dbSize : t.numberSize
       const lh = isDb ? t.dbLine : t.numberLine
-      const paras = st.prizes[k].map((n) => para(l.alignNumber, 0, run(n, color, size), lh, numInd)).join('')
-      row += cell(t.stW, 'center', paras || para(l.alignNumber, 0, '', undefined, numInd))
+      const nums = st.prizes[k].map((n) => ({ runs: run(n, color, size), after: 0, exact: lh }))
+      row += cell(t.stW, t.number.alignY, cellParas(t.number, nums, true))
     }
     x += tr(prizeRows[i].height, row)
   })
@@ -88,19 +114,19 @@ export function documentXml(l: SheetLayout): string {
   const header = headerXml(l)
   const tbl = tableXml(l)
   const colBreak = '<w:r><w:br w:type="column"/></w:r>'
-  const gapPara = spacerPara(l.gap)
+  const gapPara = spacerPara(l.gapY)
   let body = ''
   for (let c = 1; c <= l.copies; c++) {
     let hx = header
     if (c > 1) {
       if ((c - 1) % l.nrow === 0) hx = hx.replace('</w:pPr>', `</w:pPr>${colBreak}`) // sang cột mới
-      else if (l.gap > 0) hx = gapPara + hx // khoảng cách giữa 2 phiếu trong cột
+      else if (l.gapY > 0) hx = gapPara + hx // khoảng cách giữa 2 phiếu trong cột
     }
     body += hx + tbl
   }
   body += spacerPara(20)
 
-  const cols = l.ncol > 1 ? `<w:cols w:num="${l.ncol}" w:space="${l.gap}"/>` : ''
+  const cols = l.ncol > 1 ? `<w:cols w:num="${l.ncol}" w:space="${l.gapX}"/>` : ''
   const mg = l.margin
   const sect =
     `<w:sectPr><w:pgSz w:w="${l.page.w}" w:h="${l.page.h}" w:orient="${l.page.orient}"/>` +

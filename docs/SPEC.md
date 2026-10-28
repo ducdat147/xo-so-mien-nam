@@ -1,9 +1,11 @@
 # XSMN — Đặc tả app desktop (Electron)
 
 Tài liệu này là nguồn sự thật cho việc dựng app. Khi có chỗ mâu thuẫn:
-**SPEC này > thiết kế trong `design/` > bản bash trong `cli/`**, trừ phần số đo
-bố cục phiếu: phần đó lấy `cli/xsmn.sh` (hàm `build_docx`) làm chuẩn — đã kiểm
-chứng in ra đúng, và PDF mẫu trong `design/reference/` là kết quả của nó.
+**SPEC này > thiết kế trong `design/`**, trừ phần số đo bố cục phiếu: phần đó lấy bản chụp
+file Word chuẩn `app/test/golden/*.document.xml` làm chuẩn. Bản chụp và PDF mẫu trong
+`design/reference/` do bản bash cũ (`cli/xsmn.sh`, hàm `build_docx`) tạo ra, đã kiểm chứng in
+ra đúng. **Bản bash đã bỏ ngày 29-10-2026** (còn trong lịch sử git); app vẫn nhập/xuất cấu hình
+bằng file `.conf` và nhận cả khoá kiểu cũ của nó (§5).
 
 ---
 
@@ -50,12 +52,13 @@ app/
     source.ts        tải trang minhngoc + cache (§3)
     parse.ts         parse HTML → kết quả (§3)
     select.ts        chọn & sắp xếp đài theo cài đặt (§5)
-    settings.ts      mặc định, đọc/ghi JSON, nhập xsmn.conf (§5)
+    settings.ts      mặc định, chuẩn hoá JSON (§5)
+    conf.ts          nhập / xuất file .conf (§5)
     layout.ts        TÍNH bố cục phiếu (§6) — dùng chung cho HTML và DOCX
     render-html.ts   HTML trang in (xem trước, PDF, in)
     render-docx.ts   OOXML + jszip
   src/renderer/      React app: màn Kết quả, màn Cài đặt
-  test/fixtures/     copy từ cli/tests/*.html
+  test/fixtures/     HTML minhngoc mẫu + xsmn.conf.example (file cấu hình kiểu cũ)
 ```
 
 Bảo mật Electron: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`
@@ -88,7 +91,7 @@ table.bkqmiennam                      ← lấy cái ĐẦU TIÊN
 Lưu ý:
 - HTML gốc **thiếu `</td>`** giữa các cột đài (`</table><td …><table class="rightcl">`)
   và không có thuộc tính trên `<div>` (class `giaiSo` chỉ do JS trang thêm sau).
-  Parser phải chịu được — fixture trong `cli/tests/` mô phỏng đúng điều này.
+  Parser phải chịu được — fixture trong `app/test/fixtures/` mô phỏng đúng điều này.
 - Lấy số bằng cách lấy chuỗi chữ số trong từng `<div>` của ô.
 - Số lượng số mỗi giải: 8:1, 7:1, 6:3, 5:1, 4:7, 3:2, 2:1, 1:1, ĐB:1 (= 18 số/đài).
 
@@ -159,10 +162,11 @@ múi giờ máy: luôn theo ngày VN (Asia/Ho_Chi_Minh).
 ## 5. Cài đặt
 
 Lưu ở `userData/settings.json`. **Thông tin đại lý mặc định để trống** (nhãn, tên, địa chỉ,
-fax, số DĐ); giá trị trong ví dụ dưới chỉ là mẫu (chủ dự án chốt 28-10-2026). Cỡ chữ mặc định
-của nhãn, địa chỉ, fax, DĐ, ghi chú là **10 pt** (chủ dự án chỉnh 28-10-2026; bản bash dùng 8 /
+số DĐ); giá trị trong ví dụ dưới chỉ là mẫu (chủ dự án chốt 28-10-2026). **Không có dòng Fax và
+ghi chú dưới chữ "Tư"** (chủ dự án bỏ 29-10-2026; cài đặt cũ có hai mục này thì bỏ qua). Cỡ chữ
+mặc định của nhãn, địa chỉ, DĐ là **10 pt** (chủ dự án chỉnh 28-10-2026; bản bash dùng 8 /
 7,5 pt — test so với bash tự đặt lại cỡ chữ của bash). Có nút **Lưu cài đặt**, **Khôi phục mặc định**,
-**Nhập từ xsmn.conf…** (đọc file config của bản bash, ánh xạ khoá ở cuối mục này).
+**Nhập từ file .conf…**, **Xuất ra file .conf…** (định dạng ở cuối mục này).
 
 ```jsonc
 {
@@ -171,10 +175,8 @@ của nhãn, địa chỉ, fax, DĐ, ghi chú là **10 pt** (chủ dự án ch�
     "label":  { "show": true,  "size": 10,  "value": "Đại lý vé số:" },
     "name":   { "show": true,  "size": 14,  "value": "ĐỨC QUYẾT" },
     "addr":   { "show": true,  "size": 10,  "value": "Chợ Tapao - Đ.Kho - T.Linh – B.Thuận" }, // in "ĐC: " + value
-    "fax":    { "show": true,  "size": 10,  "value": "0623 881 519" },                         // in "Fax: " + value
     "phones": { "show": true,  "size": 10,  "values": ["01212 019 343", "0983 019 343"] },      // mỗi số "DĐ: …"
     "date":   { "show": true,  "size": 13 },                                                    // "Thứ Hai (26-10-2026)"
-    "note":   { "show": false, "size": 10,  "value": "" }   // in nhỏ trong ô "Tư" của cột Giải
   },
   "stations": {
     "mode": "all",                            // "all" = mọi đài quay trong ngày | "pick" = theo bảng dưới
@@ -188,11 +190,14 @@ của nhãn, địa chỉ, fax, DĐ, ghi chú là **10 pt** (chủ dự án ch�
     "paper": "A4",                            // A4 | A5 | A6
     "format": "pdf",                          // pdf | docx | both
     "cardWidthCm": 8,
-    "cardGapCm": 0.6,
+    "cardHeightCm": null,                     // null = tự động (cao hết chỗ trống); số = cm, không vượt chỗ trống
+    "cardGapXCm": 0.6,                        // khoảng cách ngang giữa 2 cột phiếu (A4, A5)
+    "cardGapYCm": 0.6,                        // khoảng cách dọc giữa 2 hàng phiếu (A4); bản cũ "cardGapCm" → cả hai
     "cardAlign": "left",                      // left | center | right — vị trí cụm phiếu trên trang
-    "alignText": "center",                    // chữ trong bảng: "Giải", tên giải, tên đài
-    "alignNumber": "right",                   // các số kết quả
-    "numberPadRightCm": 0.3,                  // khoảng cách số tới đường kẻ phải của ô
+    // Chữ trong bảng ("Giải", tên giải, tên đài) và số kết quả: padding (cm) + căn 9 vị trí.
+    // Bản cũ alignText / alignNumber / numberPadRightCm tự chuyển sang đây (chủ dự án đổi 29-10-2026).
+    "textCell":   { "padXCm": 0.05, "padYCm": 0.05, "alignX": "center", "alignY": "top" },
+    "numberCell": { "padXCm": 0.3,  "padYCm": 0.05, "alignX": "right",  "alignY": "center" },
     "numberFontPt": null,                     // null = tự chọn cỡ lớn nhất vừa phiếu
     "font": "Times New Roman",                // hoặc "Arial"
     "colors": { "text": "000000", "accent": "000000", "border": "000000", "number": "000000" }
@@ -210,13 +215,24 @@ Quy tắc chọn đài cho một ngày: `mode = all` → mọi đài trên web, 
 **và có quay hôm đó**; đài quay hôm đó mà không có trong danh sách thì thêm vào
 cuối với `on: true`. Nếu không còn đài nào `on` → in đủ các đài (giống bản bash).
 
-Nhập `xsmn.conf` (KEY=VALUE, `#` là chú thích): AGENT_LABEL, AGENT_NAME,
-AGENT_ADDRESS, AGENT_FAX, AGENT_PHONES (`|` ngăn cách), NOTE → header;
-STATIONS / STATIONS_T2…T7 / STATIONS_CN → `mode: pick` + byWeekday;
-NAME_<slug> → shortNames; PAPER, OUTPUT_FORMAT, CARD_WIDTH_CM, CARD_GAP_CM,
-CARD_ALIGN, ALIGN_TEXT, ALIGN_NUMBER, NUMBER_PAD_RIGHT_CM, NUMBER_FONT_PT, FONT,
-COLOR_TEXT/ACCENT/BORDER/NUMBER, OUTPUT_DIR → print/output. Khoá lạ: bỏ qua, báo
-số khoá đã nhập.
+**File .conf** (`core/conf.ts`; KEY=VALUE, dòng `#` là chú thích, giá trị trong ngoặc kép giữ
+nguyên kể cả `#`). File chỉ gồm **thông tin đại lý, đài và bố cục bản in**; **không** gồm máy in,
+thư mục lưu, tự lấy lại (riêng từng máy, chủ dự án bỏ 29-10-2026). **Xuất** ghi đủ phần đó, chia
+nhóm có chú thích tiếng Việt, để **nhập lại ra y nguyên** (có test); nhập là ghi đè lên cài đặt
+đang có, khoá không có trong file thì giữ.
+- Đầu phiếu: `AGENT_LABEL`, `AGENT_NAME`, `AGENT_ADDRESS`, `AGENT_PHONES` (`|` ngăn cách; để rỗng
+  là xoá), mỗi dòng thêm `_SHOW` (1/0) và `_SIZE` (pt); `DATE_LINE_SHOW`, `DATE_LINE_SIZE`.
+- Đài: `STATIONS_MODE` (all | pick), `STATIONS_ORDER_T2…T7/CN` (thứ tự cột, `-ma-dai` = không in),
+  `NAME_<slug>` (xuất đủ 21 đài).
+- Bản in: `PAPER`, `OUTPUT_FORMAT`, `CARD_WIDTH_CM` / `CARD_HEIGHT_CM` (số hoặc `auto`),
+  `CARD_GAP_X_CM`, `CARD_GAP_Y_CM`, `CARD_ALIGN`, `FONT`, `NUMBER_FONT_PT` (số hoặc `auto`),
+  `TEXT_PAD_X_CM`, `TEXT_PAD_Y_CM`, `TEXT_ALIGN`, `NUMBER_PAD_X_CM`, `NUMBER_PAD_Y_CM`,
+  `NUMBER_ALIGN` (`<dọc>-<ngang>`, ví dụ `center-right`), `COLOR_TEXT/ACCENT/BORDER/NUMBER`.
+- Khoá kiểu cũ của bản bash vẫn nhận: `STATIONS` / `STATIONS_T2…` (đài được in, giữ thứ tự web),
+  `CARD_GAP_CM` (cả hai chiều), `ALIGN_TEXT`, `ALIGN_NUMBER`, `NUMBER_PAD_RIGHT_CM`.
+  `STATIONS_ORDER_x` ưu tiên hơn `STATIONS_x` hơn `STATIONS`.
+- Khoá lạ / giá trị sai (kể cả `AGENT_FAX`, `NOTE`, `SOFFICE`, `OUTPUT_DIR` của bản cũ, và
+  `PRINTER` / `PRINT_*` / `AUTO_REFRESH` nếu viết tay vào): bỏ qua, báo tên khoá và số khoá đã nhập.
 
 ---
 
@@ -225,8 +241,8 @@ số khoá đã nhập.
 `core/layout.ts` nhận (cài đặt, danh sách đài + số, tiêu đề ngày, khổ giấy,
 phiếu trống?) và trả về **một mô tả hình học duy nhất** tính bằng **twips**
 (1 cm = 567, 1 pt = 20). `render-html` (chia 20 ra pt) và `render-docx` cùng dùng
-mô tả này ⇒ PDF và Word giống nhau. Chuẩn tham chiếu: `cli/xsmn.sh` → `build_docx`
-và các PDF trong `design/reference/`.
+mô tả này ⇒ PDF và Word giống nhau. Chuẩn tham chiếu: bản chụp `app/test/golden/` (từ
+`build_docx` của bản bash cũ) và các PDF trong `design/reference/`.
 
 ### 6.1 Trang
 
@@ -236,14 +252,20 @@ và các PDF trong `design/reference/`.
 | A5 | 11906 × 8391 | ngang | 2 × 1 (2 bản) |
 | A6 | 5953 × 8391 | đứng | 1 × 1 (1 bản) |
 
-- Lề trang: 454 (0,8 cm) mọi phía. `gap` = cardGapCm × 567.
+- Lề trang: 454 (0,8 cm) mọi phía. Khoảng cách tách hai chiều (chủ dự án yêu cầu 29-10-2026):
+  `gapX` = cardGapXCm × 567 (giữa các cột: tính bề ngang, lề, `w:cols w:space`, `column-gap`),
+  `gapY` = cardGapYCm × 567 (giữa các hàng: tính `cardHMax`, đoạn đệm exact giữa 2 bản trong cột).
+  Hai số bằng nhau thì kết quả giống hệt bản bash (một `gap` chung). Dưới đây `gap` là `gapX`
+  khi nói về bề ngang, `gapY` khi nói về chiều cao.
 - `cardW` = cardWidthCm × 567, tối đa bằng `(usableW − (ncol−1)·gap) / ncol`
-  (vượt thì cảnh báo và dùng tối đa).
+  (vượt thì cảnh báo và dùng tối đa; `cardWidthCm = null` = Auto = dùng tối đa, không cảnh báo).
 - Nhiều cột: mỗi cột rộng đúng `cardW`; phần dư bề ngang dồn vào lề theo
   `cardAlign` (left → lề phải, right → lề trái, center → chia đôi). Một cột:
   phần đầu phiếu thụt lề trái/phải theo `cardAlign`, bảng căn theo `cardAlign`.
-- `cardH = (usableH − (nrow−1)·gap) / nrow`. Các bản điền theo cột (cột 1: bản 1,2;
-  cột 2: bản 3,4). Mọi bản giống hệt nhau.
+- `cardHMax = (usableH − (nrow−1)·gap) / nrow`. `cardH = cardHMax` khi `cardHeightCm = null`
+  (tự động); có `cardHeightCm` thì `cardH = cardHeightCm × 567`, vượt `cardHMax` thì cảnh báo và
+  dùng `cardHMax` (chủ dự án thêm 28-10-2026). Phiếu thấp hơn thì phần bảng (§6.4) tự co, cỡ số
+  nhỏ lại. Các bản điền theo cột (cột 1: bản 1,2; cột 2: bản 3,4). Mọi bản giống hệt nhau.
 
 ### 6.2 Phần đầu phiếu
 
@@ -254,7 +276,7 @@ căn giữa, chữ **đậm**:
 |---|---|---|---|
 | 1 | label + " " + name (2 run, 2 cỡ) | max(pt) × 20 × 1.36 (mặc định 380) | 60 |
 | 2 | "ĐC: " + addr | pt × 20 × 1.2 (mặc định 180) | 0 |
-| 3 | "Fax: …" + "  DĐ: …" (mỗi run một cỡ) | max(pt) × 20 × 1.2 | 0 |
+| 3 | "DĐ: …  DĐ: …" (các số cách nhau 2 dấu cách; không còn Fax) | pt × 20 × 1.2 | 0 |
 | 4 | "Thứ Hai (26-10-2026)" | pt × 20 × 1.31 (mặc định 340) | 60 |
 
 Dòng dài tự xuống dòng: ước lượng số dòng = ⌈Σ(len × pt × 0.5) / (cardW/20)⌉ (đậm
@@ -267,10 +289,18 @@ Dòng dài tự xuống dòng: ước lượng số dòng = ⌈Σ(len × pt × 0
   Lề trong ô: trên 30, trái 28, dưới 20, phải 28.
 - Chữ: "Giải" 12 pt; tên giải (Tám, Bảy, Sáu, Năm, Tư, Ba, Nhì, Nhất) 12 pt, cách sau 40;
   "ĐB" 14 pt; tên đài 12 pt nếu stW ≥ 1200, 10 pt nếu ≥ 900, còn lại 8 pt. Căn theo
-  `alignText`, nhãn giải nằm sát trên ô (vAlign top), tên đài giữa ô.
-- Ghi chú (`header.note`) in dưới chữ "Tư", cỡ theo cài đặt, dòng exact = pt×20×1.2.
-- Số kết quả: đậm, mỗi số một dòng, căn theo `alignNumber`, vAlign giữa;
-  thụt phải `nind = numberPadRightCm × 567 − 28` (trừ lề ô), không âm.
+  `textCell` (mặc định giữa-trên: nhãn giải sát trên ô); hàng tiêu đề ("Giải", tên đài) luôn
+  giữa ô theo chiều dọc, chỉ lấy căn ngang + padding ngang.
+- Số kết quả: đậm, mỗi số một dòng, căn theo `numberCell` (mặc định giữa-phải).
+- **Padding + align** (`core/layout` → `cellBox`): lề trong ô mặc định ở trên giữ nguyên; padding
+  lớn hơn lề đó thì phần dư (`max(0, padX×567 − 28)`, `max(0, padY×567 − 30)`) thành thụt lề
+  ngang / khoảng trước-sau đoạn, **chỉ ở phía nội dung được căn** (căn phải → phải, căn trái →
+  trái, căn giữa → cả hai; dọc tương tự). Lý do: số căn phải mà đệm cả bên trái thì ô hẹp đi,
+  ngày 4 đài cỡ số tụt 12 → 9,5 pt. Word: `w:vAlign` top/center/bottom, `w:jc`, `w:ind`, `w:spacing
+  before/after`; ô số luôn ghi `w:ind` (giống bash). Mặc định cho ra đúng `nind = 142` như bash.
+  Bash luôn thụt lề số bên phải dù căn kiểu gì, nên chỉ so từng ký tự với bash khi số căn phải.
+- Bề rộng dành cho số: `maxW = (stW − 76 − indentLeft − indentRight) / 30`. Padding dọc làm mỗi
+  hàng cao thêm: `rowPad = 60 + max(padTop + padBottom của chữ, của số)` thay cho `pad` ở §6.4.
 
 ### 6.4 Cỡ số & chiều cao hàng (tự co giãn)
 
@@ -321,7 +351,8 @@ thì nút bánh răng ở trạng thái bật, kèm nút "Quay lại Kết quả
 Cột trái (≈320px):
 - **Ngày xổ**: ô chọn ngày (mặc định: từ 16h giờ VN là hôm nay, trước 16h là hôm qua vì chưa
   quay; để app mở qua 16h thì tự chuyển sang hôm nay nếu người dùng chưa tự chọn ngày).
-  Trước 16h nút "Hôm nay" bị khoá, kèm dòng "Chưa tới 16h nên chưa có kết quả hôm nay." + nút "Hôm nay", "Hôm qua";
+  Trước 16h nút "Hôm nay" bị khoá, kèm dòng "Chưa tới 16h nên chưa có kết quả hôm nay."
+  Lịch chỉ chọn tới **hôm nay** (giờ VN, `max` của ô ngày); gõ tay ngày sau đó thì đưa về hôm nay. + nút "Hôm nay", "Hôm qua";
   dòng phụ: "Thứ Hai · TP.HCM, Đồng Tháp, Cà Mau" (theo lịch).
 - **Khổ giấy**: 3 nút A4 (4 bản/tờ) · A5 (2 bản/tờ) · A6 (1 bản/tờ). Mặc định lấy từ cài đặt.
 - **Định dạng khi lưu**: PDF · Word · Cả hai.
@@ -365,19 +396,31 @@ kèm dòng "Cỡ số kết quả hiện tại: 13,5 pt (tự chỉnh để vừ
    nút **con mắt** (mở = hiện, gạch chéo = ẩn; `aria-pressed`, tooltip
    "Đang hiện – bấm để ẩn") · nhãn + ô nhập (dòng ẩn có nhãn "Đang ẩn") ·
    **Cỡ chữ** (− [ô số, bước 0,5, 5–30] + "pt"). Số điện thoại: danh sách ô + nút xoá,
-   "+ Thêm số". "Dòng thứ, ngày" không nhập được (tự động). Ghi chú dưới "Tư" mặc định ẩn.
+   "+ Thêm số". "Dòng thứ, ngày" không nhập được (tự động). Không có dòng Fax, ghi chú dưới "Tư".
 2. **Đài cần in** — radio "Tất cả đài quay trong ngày" | "Chọn đài theo thứ".
    Mỗi thứ một hàng; các đài là thẻ ngang theo thứ tự cột trên phiếu (số 1, 2, 3…),
    mỗi thẻ có tay nắm ⋮⋮ + ô chọn + tên. **Kéo thả** để đổi thứ tự (chỉ trong cùng
    một thứ; thẻ đang kéo mờ, chỗ thả viền màu nhấn); bàn phím: Tab tới tay nắm, ← / →.
    Chế độ "Tất cả" thì khoá cả bảng. Mục mở rộng "Tên viết tắt in trên phiếu (21 đài)".
-3. **Bản in** — khổ & định dạng mặc định, bề ngang phiếu, khoảng cách giữa phiếu,
-   khoảng cách số tới lề phải ô (cm), vị trí cụm phiếu, căn chữ, căn số, cỡ số
-   ("Tự động (lớn nhất vừa phiếu)" / 12 / 13 / 14 pt), font.
+3. **Bản in** — khổ & định dạng mặc định; **Kích thước phiếu**: hai ô gọn "Rộng" / "Cao" (cm).
+   Mỗi ô có thể là **Auto** (hiện chữ "Auto" thay cho số, lấy mức tối đa vừa khổ giấy;
+   `cardWidthCm` / `cardHeightCm` = null): về Auto bằng nhấp đúp chữ "Rộng"/"Cao", xoá trống hoặc
+   gõ "auto"; gõ số là cố định; đang Auto bấm ↑/↓ hay kéo thì bắt đầu từ mức tối đa. Mặc định rộng
+   8 cm, cao Auto. Tối đa hiện làm tròn 0,1 cm; layout bỏ qua phần nhỉnh ≤ 28 twip do làm tròn; **Khoảng cách giữa các phiếu**: hai ô gọn có biểu tượng,
+   ngang (giữa 2 cột) và dọc (giữa 2 hàng). Ô gọn kiểu Figma: gõ số, ↑/↓ (Shift ×10), kéo chuột
+   trên phần đầu ô để chỉnh nhanh;
+   **vị trí cụm phiếu trên trang** (ba hình trang giấy nhỏ Trái / Giữa / Phải, vẽ theo khổ giấy
+   mặc định: A4 2×2, A5 ngang 2 phiếu, A6 1 phiếu; phím mũi tên để đổi), **Font chữ & cỡ số**
+   (một hàng: chọn font + chọn cỡ số "Tự động" / 12 / 13 / 14 pt, gợi ý ghi cỡ số đang dùng); mục
+   **Chữ trong bảng**: hai dòng **Chữ** (Giải, tên giải, tên đài) và **Số kết quả**, mỗi dòng có
+   Padding (hai ô gọn ngang / dọc, cm, bước 0,05) và **Align** (ô 3×3 chọn 1 trong 9 vị trí, kiểu
+   Figma, dùng được phím mũi tên).
 4. **Máy in** — máy in mặc định (danh sách máy in đã cài + nút tìm lại), số bản in mặc
    định, "In nhanh, bỏ qua bước xem trước" (chỉ khi đã chọn máy in).
 5. **Lưu file** — thư mục lưu + "Chọn…", tên file ví dụ.
-6. Thanh cuối: "Nhập từ xsmn.conf…" · "Khôi phục mặc định" · **Lưu cài đặt**
+6. Thanh cuối, ba phần không xuống dòng: trái là nhóm **Cấu hình** với hai nút biểu tượng nhập /
+   xuất file .conf (xuất đúng những gì đang hiện, kể cả thay đổi chưa lưu) + phiên bản; giữa là
+   thông báo (co giãn, tự xuống dòng); phải luôn là "Khôi phục mặc định" · **Lưu cài đặt**
    (báo "Đã lưu cài đặt"). Rời màn khi chưa lưu → hỏi.
 
 Yêu cầu chung: nút/ô ≥ 44px, có `label`, `aria-*` đúng, tương phản chữ ≥ 4.5:1.

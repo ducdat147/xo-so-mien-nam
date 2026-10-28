@@ -21,7 +21,8 @@ Cách đọc: đây là HTML với vài thẻ riêng của canvas, không mở t
 
 Xem bản tương tác: mở canvas trên claude.ai, bấm Play trên từng khung.
 
-`reference/`: PDF in mẫu do `cli/xsmn.sh` tạo, dùng để so bản in của app:
+`reference/`: PDF in mẫu do bản bash cũ `cli/xsmn.sh` tạo (bản bash đã bỏ ngày 29-10-2026, còn
+trong lịch sử git), dùng để so bản in của app:
 - `xsmn_26-10-2026_A4.pdf`, `_A5.pdf`, `_A6.pdf`: Thứ Hai, 3 đài.
 - `xsmn_24-10-2026_A4_4dai.pdf`: Thứ Bảy, 4 đài (cột hẹp nhất).
 

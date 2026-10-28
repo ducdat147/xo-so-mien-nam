@@ -22,6 +22,26 @@ Mỗi lần phát hành, thêm một mục mới lên trên cùng.
 - Khung xem trước phóng to được: nút − / + / Vừa khung / Cỡ thật, Ctrl/⌘ + con lăn hoặc chụm
   hai ngón, nhấp đúp, kéo chuột để di chuyển.
 - Cỡ chữ mặc định của các dòng đầu phiếu tăng lên 10 pt.
+- Mục **Kích thước phiếu** trong Cài đặt: hai ô Rộng / Cao. Ô nào để **Auto** thì lấy kích
+  thước lớn nhất vừa khổ giấy; nhấp đúp chữ "Rộng"/"Cao" (hoặc xoá số) để về Auto, gõ số để cố
+  định. Phiếu thấp hơn thì bảng và cỡ số tự co cho vừa.
+- **Khoảng cách giữa các phiếu** tách thành ngang (giữa 2 cột) và dọc (giữa 2 hàng). Cài đặt cũ
+  và `CARD_GAP_CM` trong xsmn.conf áp cho cả hai chiều.
+- Các ô số trên nhập gọn kiểu Figma: gõ số, phím mũi tên, hoặc kéo chuột trên phần đầu ô.
+- Mục **Chữ trong bảng** thay cho "Căn chữ trong bảng", "Căn số kết quả", "Khoảng cách số tới lề
+  phải ô": hai dòng Chữ và Số kết quả, mỗi dòng có Padding ngang/dọc và ô Align 3×3 (chọn 1 trong 9
+  vị trí). Cài đặt cũ tự chuyển sang; mặc định bản in không đổi.
+- **Vị trí cụm phiếu trên trang** chọn bằng ba hình trang giấy nhỏ (Trái / Giữa / Phải) vẽ đúng khổ
+  giấy, thay cho ô chọn chữ.
+- Font chữ và cỡ số kết quả gộp thành một mục **Font chữ & cỡ số** (một hàng hai ô chọn).
+- Nhóm **Cấu hình** (nhập / xuất file .conf) ở thanh dưới màn Cài đặt: xuất thông tin đại lý, đài
+  và bố cục bản in ra file chữ có chú thích, nhập lại ra y nguyên (sao lưu hoặc chép sang máy khác).
+  Máy in và thư mục lưu không nằm trong file (riêng từng máy). File `xsmn.conf` của bản dòng lệnh
+  cũ vẫn nhập được.
+- Lịch chọn ngày chỉ cho chọn tới hôm nay.
+- Bỏ bản dòng lệnh bash (`cli/`); app là bản duy nhất.
+- Bỏ dòng **Fax** và **ghi chú dưới chữ "Tư"** khỏi phiếu và màn Cài đặt. Dòng liên hệ chỉ còn các
+  số điện thoại (DĐ). Nhập `xsmn.conf` có `AGENT_FAX` / `NOTE` thì hai khoá này được báo bỏ qua.
 
 ## 1.0.0 — 28-10-2026
 

@@ -52,7 +52,8 @@ make dist-mac    # đóng gói trên máy (dist-win, dist-win7, dist-linux tươ
 ```
 
 Tài liệu: [docs/SPEC.md](docs/SPEC.md) (đặc tả), [design/](design/) (giao diện đã duyệt),
-[CLAUDE.md](CLAUDE.md) (các quyết định đã chốt). Bản dòng lệnh bash cũ ở [cli/](cli/).
+[CLAUDE.md](CLAUDE.md) (các quyết định đã chốt). Bản dòng lệnh bash cũ đã bỏ (còn trong lịch sử git);
+cài đặt nhập/xuất được bằng file `.conf` ở màn Cài đặt, nhận cả file `xsmn.conf` của bản cũ.
 
 ## Phát hành phiên bản mới
 

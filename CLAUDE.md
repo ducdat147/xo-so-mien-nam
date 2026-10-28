@@ -10,18 +10,21 @@ lấy kết quả XSMN theo ngày từ minhngoc.net.vn, xem trước và in phi�
    xuất file, đóng gói, nghiệm thu). Đây là nguồn sự thật.
 2. `design/`: giao diện đã được chủ dự án duyệt (Main = màn Kết quả, CaiDat = màn Cài
    đặt, Phieu = phiếu in). Làm UI bám sát bản này.
-3. `cli/xsmn.sh`: bản bash đang chạy tốt. Hàm `build_docx` là chuẩn cho số đo phiếu
-   và cấu trúc .docx; `design/reference/*.pdf` là bản in mẫu do nó tạo ra.
+3. `app/test/golden/*.document.xml`: bản chụp file Word chuẩn, chụp từ bản bash cũ (đã bỏ
+   ngày 29-10-2026). App phải ra giống hệt; `design/reference/*.pdf` là bản in mẫu cùng nguồn.
 
 ## Thư mục
 
 ```
-cli/        bản dòng lệnh bash (giữ nguyên, vẫn dùng được độc lập)
-  tests/    fixture HTML của minhngoc (dùng lại cho test của app)
 design/     thiết kế UI đã duyệt (.dc.html) + reference/ PDF mẫu
 docs/       SPEC.md
 app/        app Electron (core/ = logic thuần có test, main/, preload/, renderer/)
+  test/fixtures/   HTML minhngoc mẫu + xsmn.conf.example (file cấu hình kiểu cũ, vẫn phải nhập được)
+  test/golden/     bản chụp file Word chuẩn
 ```
+
+Bản dòng lệnh bash (`cli/`) đã bỏ ngày 29-10-2026 (lấy lại được trong git nếu cần). App vẫn
+nhập/xuất cấu hình bằng file `.conf` (KEY=VALUE), nhận cả khoá kiểu cũ của bản bash.
 
 ## Quyết định đã chốt (đừng đổi khi chưa hỏi)
 
@@ -57,18 +60,10 @@ app/        app Electron (core/ = logic thuần có test, main/, preload/, rende
 - Ngày/thứ luôn tính theo giờ Việt Nam (Asia/Ho_Chi_Minh), không theo múi giờ máy.
 - DOCX: trong `w:tblPr` thứ tự phải là `tblW, jc, tblBorders, tblLayout, tblCellMar`.
 - Electron: `contextIsolation` bật, `nodeIntegration` tắt; mạng và file chỉ ở main process.
-- `cli/xsmn.sh` phải chạy được với bash 3.2 (macOS): không mảng kết hợp, không `${x,,}`.
-- Viết tên biến dính chữ trong bash bằng ngoặc nhọn: `${Y}_${PAPER}`, không phải `$Y_$PAPER`.
 
 ## Lệnh
 
-Bản bash (cần curl, xmllint, zip; PDF cần LibreOffice):
-
-```bash
-cd cli && ./xsmn.sh -d 26-10-2026 --html tests/fixture-26-10-2026.html -f docx   # chạy với fixture, không cần mạng
-```
-
-App: dùng `make` ở gốc repo (gõ `make` để xem đủ danh sách).
+Dùng `make` ở gốc repo (gõ `make` để xem đủ danh sách).
 
 ```bash
 make install    # npm install trong app/
@@ -76,7 +71,7 @@ make dev        # chạy app, tự nạp lại khi sửa code
 make check      # typecheck + unit test
 make build      # build vào app/out
 make build-win7 # build cho Electron 22 (Node 16, Chromium 108) — bản Win7
-make golden     # sinh lại document.xml mẫu từ cli/xsmn.sh khi build_docx đổi
+make golden     # cập nhật bản chụp file Word chuẩn — chỉ khi CỐ Ý đổi bố cục, xem diff trước khi commit
 make dist-mac   # đóng gói (dist-win, dist-win7, dist-linux) → app/release/
 make version V=1.1.0   # đặt phiên bản mới; nhớ thêm mục vào CHANGELOG.md rồi tag v1.1.0
 ```

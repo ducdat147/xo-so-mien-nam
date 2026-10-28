@@ -1,4 +1,4 @@
-# Lệnh thường dùng cho app Electron (app/) và bản bash (cli/). Gõ `make` để xem danh sách.
+# Lệnh thường dùng cho app Electron (app/). Gõ `make` để xem danh sách.
 
 APP := app
 # Terminal của VS Code đặt sẵn ELECTRON_RUN_AS_NODE=1, khiến Electron chạy như Node thuần.
@@ -6,7 +6,7 @@ APP := app
 RUN := env -u ELECTRON_RUN_AS_NODE
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev start build build-win7 test test-watch typecheck check golden cli-demo clean \
+.PHONY: help install dev start build build-win7 test test-watch typecheck check golden clean \
         version dist-mac dist-win dist-win7 dist-linux
 
 help: ## Liệt kê các lệnh
@@ -59,11 +59,8 @@ dist-win7: ## Đóng gói Windows 7 (.exe gộp 32 + 64-bit, Electron 22)
 dist-linux: ## Đóng gói Linux (.AppImage + .deb x64)
 	cd $(APP) && npm run dist:linux
 
-golden: ## Sinh lại document.xml mẫu từ cli/xsmn.sh (khi build_docx đổi)
-	cd $(APP) && ./scripts/make-golden.sh
-
-cli-demo: ## Chạy bản bash với fixture 26-10-2026, không cần mạng
-	cd cli && ./xsmn.sh -d 26-10-2026 --html tests/fixture-26-10-2026.html -f docx
+golden: ## Cập nhật bản chụp file Word chuẩn (chỉ khi cố ý đổi bố cục; xem diff trước khi commit)
+	cd $(APP) && UPDATE_GOLDEN=1 npx vitest run test/render-docx.test.ts
 
 clean: ## Xoá thư mục build
 	rm -rf $(APP)/out $(APP)/dist $(APP)/release

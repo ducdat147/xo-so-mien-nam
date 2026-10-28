@@ -12,6 +12,8 @@ export type FontName = 'Times New Roman' | 'Arial'
 export const PAPERS: readonly Paper[] = ['A4', 'A5', 'A6']
 export const FORMATS: readonly OutputFormat[] = ['pdf', 'docx', 'both']
 export const ALIGNS: readonly Align[] = ['left', 'center', 'right']
+export type VAlign = 'top' | 'center' | 'bottom'
+export const VALIGNS: readonly VAlign[] = ['top', 'center', 'bottom']
 export const FONTS: readonly FontName[] = ['Times New Roman', 'Arial']
 
 export interface HeaderText {
@@ -24,10 +26,8 @@ export interface HeaderSettings {
   label: HeaderText
   name: HeaderText
   addr: HeaderText
-  fax: HeaderText
   phones: { show: boolean; size: number; values: string[] }
   date: { show: boolean; size: number }
-  note: HeaderText
 }
 
 export type HeaderKey = keyof HeaderSettings
@@ -55,16 +55,34 @@ export interface Colors {
 export interface PrintSettings {
   paper: Paper
   format: OutputFormat
-  cardWidthCm: number
-  cardGapCm: number
+  /** Bề rộng mỗi phiếu (cm); null = tự động, rộng nhất vừa khổ giấy. */
+  cardWidthCm: number | null
+  /** Chiều cao mỗi phiếu (cm); null = tự động, cao hết chỗ trống trên khổ giấy. */
+  cardHeightCm: number | null
+  /** Khoảng cách ngang giữa hai cột phiếu (cm). */
+  cardGapXCm: number
+  /** Khoảng cách dọc giữa hai hàng phiếu (cm). */
+  cardGapYCm: number
   cardAlign: Align
-  alignText: Align
-  alignNumber: Align
-  numberPadRightCm: number
+  /** Chữ trong bảng: "Giải", tên giải, tên đài. */
+  textCell: CellStyle
+  /** Số kết quả. */
+  numberCell: CellStyle
   /** null = tự chọn cỡ lớn nhất vừa phiếu. */
   numberFontPt: number | null
   font: FontName
   colors: Colors
+}
+
+/**
+ * Cách đặt nội dung trong ô bảng. Padding tính từ mép ô tới nội dung, ở phía nội dung được căn
+ * (căn phải → mép phải, căn trái → mép trái, căn giữa → cả hai bên); dọc tương tự.
+ */
+export interface CellStyle {
+  padXCm: number
+  padYCm: number
+  alignX: Align
+  alignY: VAlign
 }
 
 export interface PrinterSettings {
@@ -100,21 +118,20 @@ export function defaultSettings(): Settings {
       label: { show: true, size: 10, value: '' },
       name: { show: true, size: 14, value: '' },
       addr: { show: true, size: 10, value: '' },
-      fax: { show: true, size: 10, value: '' },
       phones: { show: true, size: 10, values: [] },
       date: { show: true, size: 13 },
-      note: { show: false, size: 10, value: '' }
     },
     stations: { mode: 'all', byWeekday: defaultByWeekday(), shortNames: {} },
     print: {
       paper: 'A4',
       format: 'pdf',
       cardWidthCm: 8,
-      cardGapCm: 0.6,
+      cardHeightCm: null,
+      cardGapXCm: 0.6,
+      cardGapYCm: 0.6,
       cardAlign: 'left',
-      alignText: 'center',
-      alignNumber: 'right',
-      numberPadRightCm: 0.3,
+      textCell: { padXCm: 0.05, padYCm: 0.05, alignX: 'center', alignY: 'top' },
+      numberCell: { padXCm: 0.3, padYCm: 0.05, alignX: 'right', alignY: 'center' },
       numberFontPt: null,
       font: 'Times New Roman',
       colors: { text: '000000', accent: '000000', border: '000000', number: '000000' }
@@ -156,6 +173,16 @@ function headerText(v: unknown, def: HeaderText): HeaderText {
   return { show: bool(o.show, def.show), size: headerSize(o.size, def.size), value: str(o.value, def.value) }
 }
 
+function cellStyle(v: unknown, legacy: Obj, def: CellStyle): CellStyle {
+  const o = { ...legacy, ...obj(v) }
+  return {
+    padXCm: toNumber(o.padXCm, def.padXCm, 0, 2, 0.01),
+    padYCm: toNumber(o.padYCm, def.padYCm, 0, 2, 0.01),
+    alignX: oneOf(o.alignX, ALIGNS, def.alignX),
+    alignY: oneOf(o.alignY, VALIGNS, def.alignY)
+  }
+}
+
 /** Danh sách đài của một thứ: bỏ mã trùng/không quay hôm đó, thêm đài còn thiếu vào cuối (đang bật). */
 export function normalizeDayPicks(weekday: number, raw: unknown): StationPick[] {
   const day = scheduleFor(weekday)
@@ -183,7 +210,6 @@ export function normalizeSettings(raw: unknown): Settings {
     label: headerText(h.label, def.header.label),
     name: headerText(h.name, def.header.name),
     addr: headerText(h.addr, def.header.addr),
-    fax: headerText(h.fax, def.header.fax),
     phones: {
       show: bool(phones.show, def.header.phones.show),
       size: headerSize(phones.size, def.header.phones.size),
@@ -191,8 +217,7 @@ export function normalizeSettings(raw: unknown): Settings {
         ? phones.values.filter((p): p is string => typeof p === 'string')
         : def.header.phones.values
     },
-    date: { show: bool(date.show, def.header.date.show), size: headerSize(date.size, def.header.date.size) },
-    note: headerText(h.note, def.header.note)
+    date: { show: bool(date.show, def.header.date.show), size: headerSize(date.size, def.header.date.size) }
   }
 
   const s = obj(r.stations)
@@ -209,15 +234,21 @@ export function normalizeSettings(raw: unknown): Settings {
   const p = obj(r.print)
   const c = obj(p.colors)
   const fontPt = p.numberFontPt
+  const cardH = p.cardHeightCm
+  const cardWv = p.cardWidthCm
   const print: PrintSettings = {
     paper: oneOf(p.paper, PAPERS, def.print.paper),
     format: oneOf(p.format, FORMATS, def.print.format),
-    cardWidthCm: toNumber(p.cardWidthCm, def.print.cardWidthCm, 2, 20),
-    cardGapCm: toNumber(p.cardGapCm, def.print.cardGapCm, 0, 5),
+    // null = tự động; thiếu khoá (cài đặt cũ) thì về mặc định 8 cm
+    cardWidthCm: cardWv === null || cardWv === '' ? null : toNumber(cardWv, def.print.cardWidthCm ?? 8, 2, 20),
+    cardHeightCm: cardH === null || cardH === undefined || cardH === '' ? null : toNumber(cardH, 12, 4, 30, 0.1),
+    // Bản cũ chỉ có một khoảng cách chung (cardGapCm): dùng cho cả hai chiều
+    cardGapXCm: toNumber(p.cardGapXCm ?? p.cardGapCm, def.print.cardGapXCm, 0, 5),
+    cardGapYCm: toNumber(p.cardGapYCm ?? p.cardGapCm, def.print.cardGapYCm, 0, 5),
     cardAlign: oneOf(p.cardAlign, ALIGNS, def.print.cardAlign),
-    alignText: oneOf(p.alignText, ALIGNS, def.print.alignText),
-    alignNumber: oneOf(p.alignNumber, ALIGNS, def.print.alignNumber),
-    numberPadRightCm: toNumber(p.numberPadRightCm, def.print.numberPadRightCm, 0, 3),
+    // Bản cũ có alignText / alignNumber / numberPadRightCm riêng lẻ: chuyển sang dạng ô
+    textCell: cellStyle(p.textCell, { alignX: p.alignText }, def.print.textCell),
+    numberCell: cellStyle(p.numberCell, { alignX: p.alignNumber, padXCm: p.numberPadRightCm }, def.print.numberCell),
     numberFontPt: fontPt === null || fontPt === undefined || fontPt === '' ? null : toNumber(fontPt, 13, 6, 30, 0.5),
     font: oneOf(p.font, FONTS, def.print.font),
     colors: {
@@ -242,137 +273,4 @@ export function normalizeSettings(raw: unknown): Settings {
     },
     autoRefresh: bool(r.autoRefresh, def.autoRefresh)
   }
-}
-
-// ---------------------------------------------------------------- nhập xsmn.conf
-
-/** Đọc file KEY=VALUE giống load_config của bản bash. Trả về theo thứ tự xuất hiện (khoá sau ghi đè khoá trước). */
-export function parseConf(text: string): Map<string, string> {
-  const out = new Map<string, string>()
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim()
-    if (!line || line.startsWith('#') || line.startsWith(';')) continue
-    const eq = line.indexOf('=')
-    if (eq < 0) continue
-    const key = line.slice(0, eq).trim()
-    let val = line.slice(eq + 1).trim()
-    const q = val[0]
-    if ((q === '"' || q === "'") && val.length >= 2 && val.endsWith(q)) val = val.slice(1, -1)
-    else val = val.replace(/\s#.*$/, '').trim()
-    if (key) out.set(key, val)
-  }
-  return out
-}
-
-export interface ConfImport {
-  settings: Settings
-  /** Số khoá đã nhập. */
-  imported: number
-  /** Khoá lạ hoặc giá trị không hợp lệ (đã bỏ qua). */
-  ignored: string[]
-}
-
-const splitList = (v: string) => v.split(/[\s,;]+/).map((s) => s.trim().toLowerCase()).filter(Boolean)
-
-export function importConf(text: string, base: Settings = defaultSettings()): ConfImport {
-  const s = normalizeSettings(JSON.parse(JSON.stringify(base)))
-  const conf = parseConf(text)
-  const ignored: string[] = []
-  let imported = 0
-  const ok = () => { imported++ }
-  const bad = (k: string) => { ignored.push(k) }
-
-  const setText = (key: keyof Pick<HeaderSettings, 'label' | 'name' | 'addr' | 'fax' | 'note'>, v: string) => {
-    s.header[key].value = v
-    s.header[key].show = true
-  }
-  const setNum = (k: string, v: string, min: number, max: number, apply: (n: number) => void) => {
-    const n = toNumber(v, NaN, -Infinity, Infinity)
-    if (Number.isNaN(n) || n < min || n > max) return bad(k)
-    apply(n)
-    ok()
-  }
-  const setAlign = (k: string, v: string, apply: (a: Align) => void) => {
-    const a = v.toLowerCase() as Align
-    if (!ALIGNS.includes(a)) return bad(k)
-    apply(a)
-    ok()
-  }
-
-  const stationLists = new Map<number | 'all', string[]>()
-
-  for (const [key, v] of conf) {
-    // Bản bash coi giá trị rỗng như chưa khai báo
-    if (!v) continue
-    const dayKey = key.match(/^STATIONS_(T[2-7]|CN)$/)
-    if (key === 'STATIONS' || dayKey) {
-      const wd = dayKey ? WEEKDAY_SHORT.indexOf(dayKey[1] as (typeof WEEKDAY_SHORT)[number]) : 'all'
-      stationLists.set(wd, splitList(v))
-      ok()
-      continue
-    }
-    if (key.startsWith('NAME_')) {
-      // bản bash chấp nhận cả NAME_tp-hcm lẫn NAME_tp_hcm
-      const slug = key.slice(5).toLowerCase().replace(/_/g, '-')
-      if (findStation(slug)?.short === v) delete s.stations.shortNames[slug]
-      else s.stations.shortNames[slug] = v
-      ok()
-      continue
-    }
-    switch (key) {
-      case 'AGENT_LABEL': setText('label', v); ok(); break
-      case 'AGENT_NAME': setText('name', v); ok(); break
-      case 'AGENT_ADDRESS': setText('addr', v); ok(); break
-      case 'AGENT_FAX': setText('fax', v); ok(); break
-      case 'NOTE': setText('note', v); ok(); break
-      case 'AGENT_PHONES':
-        s.header.phones.values = v.split('|').map((p) => p.trim()).filter(Boolean)
-        s.header.phones.show = true
-        ok()
-        break
-      case 'PAPER': {
-        const p = v.toUpperCase().split('-')[0] as Paper
-        if (!PAPERS.includes(p)) bad(key)
-        else { s.print.paper = p; ok() }
-        break
-      }
-      case 'OUTPUT_FORMAT': {
-        const f = v.toLowerCase() as OutputFormat
-        if (!FORMATS.includes(f)) bad(key)
-        else { s.print.format = f; ok() }
-        break
-      }
-      case 'CARD_WIDTH_CM': setNum(key, v, 2, 20, (n) => { s.print.cardWidthCm = n }); break
-      case 'CARD_GAP_CM': setNum(key, v, 0, 5, (n) => { s.print.cardGapCm = n }); break
-      case 'NUMBER_PAD_RIGHT_CM': setNum(key, v, 0, 3, (n) => { s.print.numberPadRightCm = n }); break
-      case 'NUMBER_FONT_PT': setNum(key, v, 6, 30, (n) => { s.print.numberFontPt = n }); break
-      case 'CARD_ALIGN': setAlign(key, v, (a) => { s.print.cardAlign = a }); break
-      case 'ALIGN_TEXT': setAlign(key, v, (a) => { s.print.alignText = a }); break
-      case 'ALIGN_NUMBER': setAlign(key, v, (a) => { s.print.alignNumber = a }); break
-      case 'FONT':
-        s.print.font = /arial/i.test(v) ? 'Arial' : 'Times New Roman'
-        ok()
-        break
-      case 'COLOR_TEXT': case 'COLOR_ACCENT': case 'COLOR_BORDER': case 'COLOR_NUMBER': {
-        const c = normalizeColor(v, '')
-        if (!c) { bad(key); break }
-        s.print.colors[key.slice(6).toLowerCase() as keyof Colors] = c
-        ok()
-        break
-      }
-      case 'OUTPUT_DIR': s.output.dir = v; ok(); break
-      default: bad(key)
-    }
-  }
-
-  // STATIONS_Tx ưu tiên hơn STATIONS; giữ thứ tự trên web, đài trong danh sách thì bật.
-  if (stationLists.size) {
-    s.stations.mode = 'pick'
-    for (let d = 0; d < 7; d++) {
-      const want = stationLists.get(d) ?? stationLists.get('all')
-      s.stations.byWeekday[d] = scheduleFor(d).map((slug) => ({ slug, on: want ? want.includes(slug) : true }))
-    }
-  }
-
-  return { settings: normalizeSettings(s), imported, ignored }
 }

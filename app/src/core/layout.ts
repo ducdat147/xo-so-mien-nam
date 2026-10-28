@@ -1,8 +1,8 @@
 // Bố cục phiếu (SPEC §6). Một mô tả hình học duy nhất, tính bằng twips (1 cm = 567, 1 pt = 20),
 // dùng chung cho render-html (PDF, xem trước, in) và render-docx. Số đo port từ build_docx của
-// cli/xsmn.sh: giữ nguyên phép chia nguyên của bash để ra đúng từng twip.
+// bản bash cũ (đã bỏ): giữ nguyên phép chia nguyên của bash để ra đúng từng twip.
 
-import type { Align, Colors, FontName, HeaderSettings, HeaderText, Paper, PrintSettings } from './settings'
+import type { Align, CellStyle, Colors, FontName, HeaderSettings, HeaderText, Paper, PrintSettings, VAlign } from './settings'
 import { PRIZES, PRIZE_COUNT, PRIZE_LABEL, type PrizeKey, type Prizes } from './stations'
 
 export const TWIPS_PER_CM = 567
@@ -34,6 +34,8 @@ export const BORDER_SZ = 6
 export const LABEL_SIZE = 24
 export const DB_LABEL_SIZE = 28
 export const LABEL_AFTER = 40
+/** Nhập đúng số cm làm tròn hiện trên màn hình (vd 13,2) có thể nhỉnh hơn chỗ trống vài twip: bỏ qua. */
+const ROUNDING_TOLERANCE = 28
 /** Đoạn đệm khi phần đầu phiếu bị ẩn hết (Word cần một đoạn giữa hai bảng). */
 export const SPACER_H = 20
 
@@ -60,6 +62,33 @@ export interface HeaderLine {
   after: number
   /** Số dòng ước lượng khi chữ dài phải xuống dòng. */
   lines: number
+}
+
+/**
+ * Cách đặt nội dung trong một loại ô (chữ hoặc số), tính từ CellStyle. Ô luôn có lề trong mặc định
+ * CELL_MARGIN; padding lớn hơn lề đó thì phần dư thành thụt lề (ngang) / khoảng cách đoạn (dọc),
+ * chỉ ở phía nội dung được căn (căn giữa: cả hai phía).
+ */
+export interface CellBox {
+  alignX: Align
+  alignY: VAlign
+  indentLeft: number
+  indentRight: number
+  padTop: number
+  padBottom: number
+}
+
+export function cellBox(c: CellStyle): CellBox {
+  const x = Math.max(0, cmToTwips(c.padXCm) - CELL_MARGIN.left)
+  const y = Math.max(0, cmToTwips(c.padYCm) - CELL_MARGIN.top)
+  return {
+    alignX: c.alignX,
+    alignY: c.alignY,
+    indentLeft: c.alignX === 'right' ? 0 : x,
+    indentRight: c.alignX === 'left' ? 0 : x,
+    padTop: c.alignY === 'bottom' ? 0 : y,
+    padBottom: c.alignY === 'top' ? 0 : y
+  }
 }
 
 export interface TableRow {
@@ -90,11 +119,16 @@ export interface SheetLayout {
   ncol: number
   nrow: number
   copies: number
-  gap: number
+  /** Khoảng cách ngang giữa hai cột phiếu. */
+  gapX: number
+  /** Khoảng cách dọc giữa hai hàng phiếu (giữa 2 bản trong cùng cột). */
+  gapY: number
   /** Bề ngang một cột chữ trên trang (nhiều cột: đúng bằng cardW). */
   colW: number
   cardW: number
   cardH: number
+  /** Chiều cao lớn nhất một phiếu có thể có trên khổ giấy này (khi để tự động thì cardH = cardHMax). */
+  cardHMax: number
   cardAlign: Align
   header: {
     lines: HeaderLine[]
@@ -117,17 +151,17 @@ export interface SheetLayout {
     /** Chiều cao một dòng số / dòng ĐB (exact). */
     numberLine: number
     dbLine: number
-    /** Thụt phải của số so với lề trong ô. */
-    numberIndent: number
+    /** Khoảng đệm thêm của mỗi hàng (ROW_PAD + padding dọc lớn nhất). */
+    rowPad: number
+    /** Cách đặt chữ (Giải, tên giải, tên đài) và số kết quả trong ô. */
+    text: CellBox
+    number: CellBox
   }
-  note: { text: string; size: number; lineH: number } | null
   stations: LayoutStation[]
   title: string
   blank: boolean
   font: FontName
   colors: Colors
-  alignText: Align
-  alignNumber: Align
   warnings: string[]
 }
 
@@ -183,13 +217,8 @@ function headerLines(h: HeaderSettings, title: string, widthTw: number): HeaderL
   const addr = val(h.addr)
   push('addr', [{ text: addr && `ĐC: ${addr}`, size: ptToHalf(h.addr.size) }], 120, 0)
 
-  const fax = val(h.fax)
   const phones = h.phones.show ? h.phones.values.map((p) => p.trim()).filter(Boolean) : []
-  const phoneText = phones.map((p) => `DĐ: ${p}`).join('  ')
-  push('contact', [
-    { text: fax && `Fax: ${fax}`, size: ptToHalf(h.fax.size) },
-    { text: phoneText && (fax ? `  ${phoneText}` : phoneText), size: ptToHalf(h.phones.size) }
-  ], 120, 0)
+  push('contact', [{ text: phones.map((p) => `DĐ: ${p}`).join('  '), size: ptToHalf(h.phones.size) }], 120, 0)
 
   if (h.date.show) push('date', [{ text: title, size: ptToHalf(h.date.size) }], 131, 60)
   return lines
@@ -201,16 +230,19 @@ export function computeLayout(input: LayoutInput): SheetLayout {
   const spec = PAPER_SPECS[paper]
   const { ncol, nrow } = spec
   const margin = PAGE_MARGIN
-  const gap = Math.max(0, cmToTwips(ps.cardGapCm))
+  const gapX = Math.max(0, cmToTwips(ps.cardGapXCm))
+  const gapY = Math.max(0, cmToTwips(ps.cardGapYCm))
   const usableW = spec.w - 2 * margin
   const usableH = spec.h - 2 * margin
-  let colW = idiv(usableW - (ncol - 1) * gap, ncol)
+  let colW = idiv(usableW - (ncol - 1) * gapX, ncol)
 
-  let cardW = cmToTwips(ps.cardWidthCm)
+  // Bề rộng phiếu: tự động (null) = rộng nhất vừa một cột; tự nhập thì không vượt chỗ trống
+  let cardW = ps.cardWidthCm === null ? colW : cmToTwips(ps.cardWidthCm)
   if (cardW <= 0) cardW = 4536
+  if (cardW > colW && cardW - colW <= ROUNDING_TOLERANCE) cardW = colW
   if (cardW > colW) {
     warnings.push(
-      `Bề ngang phiếu ${viNumber(ps.cardWidthCm, 2)} cm rộng hơn chỗ trống trên khổ ${paper} ` +
+      `Bề ngang phiếu ${viNumber(ps.cardWidthCm ?? 0, 2)} cm rộng hơn chỗ trống trên khổ ${paper} ` +
         `(${viNumber(colW / TWIPS_PER_CM)} cm), đã dùng tối đa.`
     )
     cardW = colW
@@ -221,7 +253,7 @@ export function computeLayout(input: LayoutInput): SheetLayout {
   let marginR = margin
   if (ncol > 1) {
     colW = cardW
-    const left = usableW - ncol * cardW - (ncol - 1) * gap
+    const left = usableW - ncol * cardW - (ncol - 1) * gapX
     if (ps.cardAlign === 'left') marginR = margin + left
     else if (ps.cardAlign === 'right') marginL = margin + left
     else {
@@ -235,7 +267,22 @@ export function computeLayout(input: LayoutInput): SheetLayout {
     ps.cardAlign === 'left' ? { left: 0, right: spare }
       : ps.cardAlign === 'right' ? { left: spare, right: 0 }
         : { left: idiv(spare, 2), right: idiv(spare, 2) }
-  const cardH = idiv(usableH - (nrow - 1) * gap, nrow)
+  // Chiều cao phiếu: tự động = cao hết chỗ trống; tự chọn thì không vượt quá chỗ trống
+  const cardHMax = idiv(usableH - (nrow - 1) * gapY, nrow)
+  let cardH = cardHMax
+  if (ps.cardHeightCm) {
+    const want = cmToTwips(ps.cardHeightCm)
+    if (want > cardHMax && want - cardHMax <= ROUNDING_TOLERANCE) {
+      cardH = cardHMax
+    } else if (want > cardHMax) {
+      warnings.push(
+        `Chiều cao phiếu ${viNumber(ps.cardHeightCm, 2)} cm cao hơn chỗ trống trên khổ ${paper} ` +
+          `(${viNumber(cardHMax / TWIPS_PER_CM)} cm), đã dùng tối đa.`
+      )
+    } else {
+      cardH = want
+    }
+  }
 
   // --- Phần đầu phiếu
   const lines = headerLines(hs, input.title, cardW)
@@ -249,12 +296,14 @@ export function computeLayout(input: LayoutInput): SheetLayout {
   const stationSize = stW >= 1200 ? 24 : stW >= 900 ? 20 : 16
 
   // --- Cỡ số: lớn nhất mà vẫn vừa chiều cao phiếu và bề ngang ô (half-point)
-  const numberIndent = Math.max(0, cmToTwips(ps.numberPadRightCm) - CELL_MARGIN.left)
+  const textBox = cellBox(ps.textCell)
+  const numBox = cellBox(ps.numberCell)
+  const rowPad = ROW_PAD + Math.max(textBox.padTop + textBox.padBottom, numBox.padTop + numBox.padBottom)
   const available = cardH - headerH - SAFETY
   // 6 chữ số đậm ≈ 6 × 0,5 em = 30 twips mỗi half-point; 76 = lề trong ô + chừa viền
-  const maxW = idiv(stW - 76 - numberIndent, 30)
+  const maxW = idiv(stW - 76 - numBox.indentLeft - numBox.indentRight, 30)
   const top = ps.numberFontPt ? Math.trunc(ps.numberFontPt * 2) : 36
-  const baseFor = (sz: number, db: number) => 18 * sz * 11 + db * 11 + 10 * ROW_PAD
+  const baseFor = (sz: number, db: number) => 18 * sz * 11 + db * 11 + 10 * rowPad
   let numSz = top
   for (; numSz > 14; numSz--) {
     if (numSz > maxW) continue
@@ -265,7 +314,7 @@ export function computeLayout(input: LayoutInput): SheetLayout {
     warnings.push(`Cỡ số ${viNumber(ps.numberFontPt)} pt quá lớn so với phiếu, đã dùng ${viNumber(numSz / 2)} pt.`)
   }
   if (numSz > maxW) {
-    warnings.push('Ô số quá hẹp, số có thể bị cắt. Bớt đài, tăng bề ngang phiếu hoặc giảm khoảng cách số tới lề.')
+    warnings.push('Ô số quá hẹp, số có thể bị cắt. Bớt đài, tăng bề ngang phiếu hoặc giảm padding ngang của số.')
   }
   let dbSz = numSz + 2
   if (dbSz > maxW - 1) dbSz = maxW - 1 // ĐB 6 chữ số phải vừa ô
@@ -275,20 +324,21 @@ export function computeLayout(input: LayoutInput): SheetLayout {
   let extra = available - baseFor(numSz, dbSz)
   if (extra < 0) {
     extra = 0
-    warnings.push('Phiếu hơi chật, có thể tràn trang. Thử bớt nội dung đầu phiếu hoặc giảm cỡ chữ.')
+    warnings.push(
+      ps.cardHeightCm
+        ? 'Phiếu hơi chật, có thể tràn trang. Tăng chiều cao phiếu, bớt nội dung đầu phiếu hoặc giảm cỡ chữ.'
+        : 'Phiếu hơi chật, có thể tràn trang. Thử bớt nội dung đầu phiếu hoặc giảm cỡ chữ.'
+    )
   }
 
   const rows: TableRow[] = ROW_KEYS.map((key) => {
-    const h = key === 'hdr' ? L + ROW_PAD : key === 'db' ? LDB + ROW_PAD : PRIZE_COUNT[key] * L + ROW_PAD
+    const h = key === 'hdr' ? L + rowPad : key === 'db' ? LDB + rowPad : PRIZE_COUNT[key] * L + rowPad
     return {
       key,
       label: key === 'hdr' ? 'Giải' : PRIZE_LABEL[key],
       height: h + idiv(extra * ROW_WEIGHT[key], WEIGHT_SUM)
     }
   })
-
-  const noteText = hs.note.show ? hs.note.value.trim() : ''
-  const noteSize = ptToHalf(hs.note.size)
 
   return {
     paper,
@@ -297,10 +347,12 @@ export function computeLayout(input: LayoutInput): SheetLayout {
     ncol,
     nrow,
     copies: ncol * nrow,
-    gap,
+    gapX,
+    gapY,
     colW,
     cardW,
     cardH,
+    cardHMax,
     cardAlign: ps.cardAlign,
     header: { lines, height: headerH, indent: spare > 0 ? indent : { left: 0, right: 0 } },
     table: {
@@ -315,16 +367,15 @@ export function computeLayout(input: LayoutInput): SheetLayout {
       dbSize: dbSz,
       numberLine: L,
       dbLine: LDB,
-      numberIndent
+      rowPad,
+      text: textBox,
+      number: numBox
     },
-    note: noteText ? { text: noteText, size: noteSize, lineH: noteSize * 12 } : null,
     stations: input.stations,
     title: input.title,
     blank: input.blank ?? false,
     font: ps.font,
     colors: ps.colors,
-    alignText: ps.alignText,
-    alignNumber: ps.alignNumber,
     warnings
   }
 }

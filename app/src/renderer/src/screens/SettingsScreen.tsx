@@ -1,18 +1,21 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import { formatDate, parseDate, todayVN } from '../../../core/dates'
 import { PAPER_SPECS, TWIPS_PER_CM, viNumber } from '../../../core/layout'
 import type { DayResult } from '../../../core/parse'
 import { renderHtml } from '../../../core/render-html'
 import {
-  defaultSettings, FONTS, type Align, type HeaderKey, type HeaderText, type OutputFormat, type Paper, type Settings
+  defaultSettings, FONTS, type CellStyle, type FontName, type HeaderKey, type HeaderText, type OutputFormat, type Paper, type Settings
 } from '../../../core/settings'
 import { buildSheet } from '../../../core/sheet'
 import { STATIONS } from '../../../core/stations'
 import { APP_NAME } from '../../../shared/brand'
 import { api } from '../api'
 import { NumberStepper, Segmented } from '../components/controls'
+import { PagePositionPicker } from '../components/PagePositionPicker'
 import { PrinterSelect } from '../components/PrinterSelect'
 import { SheetPreview } from '../components/SheetPreview'
+import { AlignGrid, alignName } from '../components/AlignGrid'
+import { CompactInput } from '../components/CompactInput'
 import { StationPicker } from '../components/StationPicker'
 import { useFontCss, usePrinters } from '../hooks'
 import { SAMPLE_DATE, SAMPLE_DAY } from '../sample'
@@ -22,10 +25,8 @@ const AGENT_FIELDS: { key: HeaderKey; label: string; kind: FieldKind; placeholde
   { key: 'label', label: 'Nhãn trước tên', kind: 'text' },
   { key: 'name', label: 'Tên đại lý', kind: 'text' },
   { key: 'addr', label: 'Địa chỉ', kind: 'text', hint: 'Phiếu tự thêm “ĐC: ” ở đầu.' },
-  { key: 'fax', label: 'Fax', kind: 'text' },
-  { key: 'phones', label: 'Số điện thoại (DĐ)', kind: 'phones', hint: 'In cùng dòng với Fax.' },
+  { key: 'phones', label: 'Số điện thoại (DĐ)', kind: 'phones', hint: 'Mỗi số in thành “DĐ: …”, chung một dòng.' },
   { key: 'date', label: 'Dòng thứ, ngày', kind: 'auto' },
-  { key: 'note', label: 'Ghi chú dưới chữ “Tư”', kind: 'text', placeholder: 'Ví dụ: Cần so lại với fax của c.ty', hint: 'In nhỏ trong ô “Tư” của cột Giải.' }
 ]
 
 const PAPER_OPTIONS = [
@@ -38,7 +39,11 @@ const FORMAT_OPTIONS = [
   { value: 'docx', label: 'Word' },
   { value: 'both', label: 'Cả hai' }
 ] as const
-const ALIGN_LABEL: Record<Align, string> = { left: 'Trái', center: 'Giữa', right: 'Phải' }
+const CELL_ROWS = [
+  { key: 'textCell', label: 'Chữ', sub: 'Giải, tên giải, tên đài' },
+  { key: 'numberCell', label: 'Số kết quả', sub: 'Các số trúng thưởng' }
+] as const
+
 const EXT: Record<OutputFormat, string> = { pdf: '.pdf', docx: '.docx', both: '.pdf + .docx' }
 
 const EyeOpen = () => (
@@ -52,6 +57,22 @@ const EyeOff = () => (
     <path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6" />
     <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
     <path d="M3 3l18 18" />
+  </svg>
+)
+/** Nhập: mũi tên đi vào tờ giấy. */
+const FileImport = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5" />
+    <path d="M12 11v6M9 14l3 3 3-3" />
+  </svg>
+)
+/** Xuất: mũi tên đi ra khỏi tờ giấy. */
+const FileExport = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5" />
+    <path d="M12 17v-6M9 14l3-3 3 3" />
   </svg>
 )
 const Close = () => (
@@ -72,29 +93,6 @@ function Card(props: { id: string; title: string; desc?: string; badge?: string;
       </div>
       {props.children}
     </section>
-  )
-}
-
-function SelectField<T extends string | number>(props: {
-  id: string
-  label: string
-  value: T
-  options: { value: T; label: string }[]
-  onChange: (v: T) => void
-}) {
-  const { id, label, value, options, onChange } = props
-  return (
-    <div className="field">
-      <label htmlFor={id} className="field-label">{label}</label>
-      <select
-        id={id}
-        className="input"
-        value={String(value)}
-        onChange={(e) => onChange(options.find((o) => String(o.value) === e.target.value)!.value)}
-      >
-        {options.map((o) => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
-      </select>
-    </div>
   )
 }
 
@@ -148,15 +146,35 @@ export function SettingsScreen(props: SettingsScreenProps) {
     }
   }
 
+  const exportConf = async () => {
+    setMessage(null)
+    try {
+      const file = await api.exportConf(draft)
+      if (!file) return
+      const name = file.split(/[\\/]/).pop()
+      setMessage({ kind: 'ok', text: `Đã xuất cài đặt ra ${name}` + (dirty ? ' (gồm cả thay đổi chưa lưu).' : '.') })
+    } catch (e) {
+      setMessage({ kind: 'error', text: `Không ghi được file: ${(e as Error).message}` })
+    }
+  }
+
   const chooseDir = async () => {
     const dir = await api.chooseOutputDir(draft.output.dir)
     if (dir) setDraft((d) => { d.output.dir = dir })
   }
 
-  const maxWidthCm = (paper: Paper) => {
+  /** Bề rộng phiếu lớn nhất trên khổ giấy (cm, làm tròn 0,1 như chú thích khổ giấy). */
+  const maxWidthNum = (paper: Paper) => {
     const s = PAPER_SPECS[paper]
-    const gap = Math.trunc(draft.print.cardGapCm * TWIPS_PER_CM)
-    return viNumber(Math.trunc((s.w - 908 - (s.ncol - 1) * gap) / s.ncol) / TWIPS_PER_CM)
+    const gap = Math.trunc(draft.print.cardGapXCm * TWIPS_PER_CM)
+    return Math.round((Math.trunc((s.w - 908 - (s.ncol - 1) * gap) / s.ncol) / TWIPS_PER_CM) * 10) / 10
+  }
+  const maxWidthCm = (paper: Paper) => viNumber(maxWidthNum(paper))
+  /** Chiều cao phiếu lớn nhất trên khổ giấy (cm, làm tròn 0,1; layout bỏ qua phần nhỉnh do làm tròn). */
+  const maxHeightCm = (paper: Paper) => {
+    const s = PAPER_SPECS[paper]
+    const gap = Math.trunc(draft.print.cardGapYCm * TWIPS_PER_CM)
+    return Math.round((Math.trunc((s.h - 908 - (s.nrow - 1) * gap) / s.nrow) / TWIPS_PER_CM) * 10) / 10
   }
 
   const fontOptions = [null, 12, 13, 14]
@@ -313,36 +331,110 @@ export function SettingsScreen(props: SettingsScreenProps) {
             <Segmented id="l-dd" label="Định dạng mặc định" options={FORMAT_OPTIONS} value={draft.print.format}
               onChange={(v) => setDraft((d) => { d.print.format = v })} variant="plain" />
             <div className="field">
-              <label htmlFor="f-cw" className="field-label">Bề ngang phiếu</label>
-              <NumberStepper id="f-cw" label="bề ngang phiếu" value={draft.print.cardWidthCm} min={4} max={10} step={0.1} unit="cm"
-                onChange={(v) => setDraft((d) => { d.print.cardWidthCm = v })} />
-              <span className="hint">Tối đa {maxWidthCm('A4')} cm với A4/A5, {maxWidthCm('A6')} cm với A6.</span>
+              <span id="l-size" className="field-label">Kích thước phiếu</span>
+              <div className="row wrap" role="group" aria-labelledby="l-size">
+                <CompactInput id="f-cw" kind="width" label="bề rộng phiếu" title="Bề rộng mỗi phiếu. Để trống hoặc gõ auto: rộng nhất vừa khổ giấy"
+                  value={draft.print.cardWidthCm} min={4} max={10} allowAuto autoValue={maxWidthNum(draft.print.paper)}
+                  onChange={(v) => setDraft((d) => { d.print.cardWidthCm = v })} />
+                <CompactInput id="f-ch" kind="height" label="chiều cao phiếu" title="Chiều cao mỗi phiếu. Để trống hoặc gõ auto: cao hết chỗ trống"
+                  value={draft.print.cardHeightCm} min={4} max={maxHeightCm('A4')} allowAuto autoValue={maxHeightCm(draft.print.paper)}
+                  onChange={(v) => setDraft((d) => { d.print.cardHeightCm = v })} />
+              </div>
+              <span className="hint">
+                Tối đa rộng {maxWidthCm('A4')} cm (A4, A5), {maxWidthCm('A6')} cm (A6); cao {viNumber(maxHeightCm('A4'))} cm (A4),{' '}
+                {viNumber(maxHeightCm('A5'))} cm (A5, A6). Auto là lấy mức tối đa; nhấp đúp chữ “Rộng”/“Cao”, xoá số hoặc gõ “auto” để về Auto.
+              </span>
             </div>
             <div className="field">
-              <label htmlFor="f-gap" className="field-label">Khoảng cách giữa các phiếu</label>
-              <NumberStepper id="f-gap" label="khoảng cách giữa các phiếu" value={draft.print.cardGapCm} min={0} max={3} step={0.1} unit="cm"
-                onChange={(v) => setDraft((d) => { d.print.cardGapCm = v })} />
+              <span id="l-gap" className="field-label">Khoảng cách giữa các phiếu</span>
+              <div className="row" role="group" aria-labelledby="l-gap">
+                <CompactInput id="f-gap-x" kind="gap-x" label="khoảng cách ngang giữa hai cột phiếu"
+                  title="Khoảng cách ngang giữa hai cột phiếu (A4, A5)" value={draft.print.cardGapXCm}
+                  onChange={(v) => setDraft((d) => { d.print.cardGapXCm = v ?? 0 })} />
+                <CompactInput id="f-gap-y" kind="gap-y" label="khoảng cách dọc giữa hai hàng phiếu"
+                  title="Khoảng cách dọc giữa hai hàng phiếu (A4)" value={draft.print.cardGapYCm}
+                  onChange={(v) => setDraft((d) => { d.print.cardGapYCm = v ?? 0 })} />
+              </div>
+              <span className="hint">Ngang: giữa 2 cột (A4, A5). Dọc: giữa 2 hàng (A4). Kéo trên biểu tượng để chỉnh nhanh.</span>
             </div>
             <div className="field">
-              <label htmlFor="f-pad" className="field-label">Khoảng cách số tới lề phải ô</label>
-              <NumberStepper id="f-pad" label="khoảng cách số tới lề phải ô" value={draft.print.numberPadRightCm} min={0} max={1.5} step={0.1} unit="cm"
-                onChange={(v) => setDraft((d) => { d.print.numberPadRightCm = v })} />
+              <span id="l-calign" className="field-label">Vị trí cụm phiếu trên trang</span>
+              <PagePositionPicker id="l-calign" paper={draft.print.paper} value={draft.print.cardAlign}
+                onChange={(v) => setDraft((d) => { d.print.cardAlign = v })} />
+              <span className="hint">
+                {draft.print.paper === 'A6'
+                  ? 'Khổ A6 chỉ có một phiếu: lệch trái / giữa / phải trong phần trống của trang.'
+                  : 'Phần giấy còn trống dồn sang phía đối diện; chọn Giữa để chia đều hai bên.'}
+              </span>
             </div>
-            <SelectField id="f-calign" label="Vị trí cụm phiếu trên trang" value={draft.print.cardAlign}
-              options={(['left', 'center', 'right'] as const).map((a) => ({ value: a, label: ALIGN_LABEL[a] }))}
-              onChange={(v) => setDraft((d) => { d.print.cardAlign = v })} />
-            <SelectField id="f-talign" label="Căn chữ trong bảng" value={draft.print.alignText}
-              options={(['center', 'left', 'right'] as const).map((a) => ({ value: a, label: ALIGN_LABEL[a] }))}
-              onChange={(v) => setDraft((d) => { d.print.alignText = v })} />
-            <SelectField id="f-nalign" label="Căn số kết quả" value={draft.print.alignNumber}
-              options={(['right', 'center', 'left'] as const).map((a) => ({ value: a, label: ALIGN_LABEL[a] }))}
-              onChange={(v) => setDraft((d) => { d.print.alignNumber = v })} />
-            <SelectField id="f-nsize" label="Cỡ số kết quả" value={draft.print.numberFontPt ?? 0}
-              options={fontOptions.map((pt) => ({ value: pt ?? 0, label: pt === null ? 'Tự động (lớn nhất vừa phiếu)' : `${viNumber(pt)} pt` }))}
-              onChange={(v) => setDraft((d) => { d.print.numberFontPt = v || null })} />
-            <SelectField id="f-font" label="Font chữ trên phiếu" value={draft.print.font}
-              options={FONTS.map((f) => ({ value: f, label: f }))}
-              onChange={(v) => setDraft((d) => { d.print.font = v })} />
+            <div className="field">
+              <span id="l-typo" className="field-label">Font chữ &amp; cỡ số</span>
+              <div className="row" role="group" aria-labelledby="l-typo">
+                <select
+                  id="f-font"
+                  className="input grow"
+                  aria-label="Font chữ trên phiếu"
+                  value={draft.print.font}
+                  onChange={(e) => setDraft((d) => { d.print.font = e.target.value as FontName })}
+                >
+                  {FONTS.map((f) => <option key={f} value={f}>{f}</option>)}
+                </select>
+                <select
+                  id="f-nsize"
+                  className="input size-select"
+                  aria-label="Cỡ số kết quả"
+                  value={String(draft.print.numberFontPt ?? 0)}
+                  onChange={(e) => setDraft((d) => { d.print.numberFontPt = Number(e.target.value) || null })}
+                >
+                  {fontOptions.map((pt) => (
+                    <option key={pt ?? 0} value={String(pt ?? 0)}>{pt === null ? 'Tự động' : `${viNumber(pt)} pt`}</option>
+                  ))}
+                </select>
+              </div>
+              <span className="hint">
+                Font dùng cho cả phiếu. Cỡ số kết quả{' '}
+                {draft.print.numberFontPt === null
+                  ? `tự động lấy lớn nhất vừa phiếu, hiện là ${numberPt} pt.`
+                  : `chọn tay ${viNumber(draft.print.numberFontPt)} pt; to quá thì tự hạ cho vừa.`}
+              </span>
+            </div>
+          </div>
+          <div className="cell-styles" role="group" aria-labelledby="l-cells">
+            <span id="l-cells" className="field-label">Chữ trong bảng</span>
+            <div className="cell-styles-grid">
+              <span />
+              <span className="cell-col-head">Padding</span>
+              <span className="cell-col-head">Align</span>
+              {CELL_ROWS.map((r) => {
+                const c = draft.print[r.key]
+                const set = (patch: Partial<CellStyle>) => setDraft((d) => { Object.assign(d.print[r.key], patch) })
+                return (
+                  <Fragment key={r.key}>
+                    <div className="cell-row-label">
+                      <span>{r.label}</span>
+                      <span className="hint">{r.sub}</span>
+                    </div>
+                    <div className="row">
+                      <CompactInput id={`${r.key}-px`} kind="pad-x" label={`padding ngang của ${r.label.toLowerCase()}`}
+                        title={`Khoảng cách ngang từ mép ô tới ${r.label.toLowerCase()}, ở phía được căn`}
+                        value={c.padXCm} min={0} max={1.5} step={0.05} onChange={(v) => set({ padXCm: v ?? 0 })} />
+                      <CompactInput id={`${r.key}-py`} kind="pad-y" label={`padding dọc của ${r.label.toLowerCase()}`}
+                        title={`Khoảng cách dọc từ mép ô tới ${r.label.toLowerCase()}, ở phía được căn`}
+                        value={c.padYCm} min={0} max={1} step={0.05} onChange={(v) => set({ padYCm: v ?? 0 })} />
+                    </div>
+                    <div className="cell-align">
+                      <AlignGrid label={`Căn ${r.label.toLowerCase()} trong ô`} x={c.alignX} y={c.alignY}
+                        onChange={(x, y) => set({ alignX: x, alignY: y })} />
+                      <span className="hint">{alignName(c.alignX, c.alignY)}</span>
+                    </div>
+                  </Fragment>
+                )
+              })}
+            </div>
+            <span className="hint">
+              Padding tính từ mép ô tới chữ, ở phía chữ được căn (căn giữa: cả hai bên). Hàng “Giải” và tên đài
+              luôn nằm giữa ô theo chiều dọc.
+            </span>
           </div>
         </Card>
 
@@ -412,13 +504,26 @@ export function SettingsScreen(props: SettingsScreenProps) {
 
       <div className="settings-bar">
         <div className="bar-left">
-          <button type="button" className="btn" onClick={importConf}>Nhập từ xsmn.conf…</button>
+          <div className="conf-group" role="group" aria-labelledby="l-conf">
+            <span id="l-conf" className="conf-label">Cấu hình</span>
+            <button type="button" className="icon-btn small tip" onClick={importConf}
+              aria-label="Nhập cấu hình từ file .conf" data-tip="Nhập cấu hình từ file .conf">
+              <FileImport />
+            </button>
+            <button type="button" className="icon-btn small tip" onClick={exportConf}
+              aria-label="Xuất cấu hình ra file .conf" data-tip="Xuất cấu hình ra file .conf">
+              <FileExport />
+            </button>
+          </div>
           {version && <span className="bar-msg muted">{APP_NAME} · phiên bản {version}</span>}
         </div>
-        <div className="bar-right">
-          {message && <span role="status" className={`bar-msg ${message.kind}`}>{message.text}</span>}
-          {!message && !dirty && <span role="status" className="bar-msg muted">Đã lưu cài đặt</span>}
+        {/* Thông báo co giãn ở giữa, không đẩy hai nút bên phải xuống dòng */}
+        <div className="bar-status" role="status">
+          {message && <span className={`bar-msg ${message.kind}`}>{message.text}</span>}
+          {!message && !dirty && <span className="bar-msg muted">Đã lưu cài đặt</span>}
           {!message && dirty && <span className="bar-msg muted">Có thay đổi chưa lưu</span>}
+        </div>
+        <div className="bar-right">
           <button type="button" className="btn ghost" onClick={() => { replaceDraft(defaultSettings()); setMessage(null) }}>
             Khôi phục mặc định
           </button>

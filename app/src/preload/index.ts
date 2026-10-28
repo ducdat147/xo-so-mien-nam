@@ -12,6 +12,7 @@ const api: XsmnApi = {
   openOutputDir: () => ipcRenderer.invoke(IPC.openOutputDir),
   saveSettings: (s) => ipcRenderer.invoke(IPC.saveSettings, s),
   importConf: (base) => ipcRenderer.invoke(IPC.importConf, base),
+  exportConf: (settings) => ipcRenderer.invoke(IPC.exportConf, settings),
   chooseOutputDir: (current) => ipcRenderer.invoke(IPC.chooseOutputDir, current),
   listPrinters: () => ipcRenderer.invoke(IPC.listPrinters),
   updateSettings: (patch) => ipcRenderer.invoke(IPC.updateSettings, patch)
