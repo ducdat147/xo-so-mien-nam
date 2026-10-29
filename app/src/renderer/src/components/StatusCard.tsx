@@ -51,6 +51,8 @@ export function StatusCard(props: {
   let title: string
   let desc: string
   let extra: ReactNode = null
+  /** Thanh tiến độ lúc đang quay, chạy dọc mép dưới dải. */
+  let progress: ReactNode = null
 
   const waitingNet = (!online && (!result || result.status === 'error')) || result?.errorKind === 'offline'
   if (waitingNet) {
@@ -93,21 +95,19 @@ export function StatusCard(props: {
         `. Ô chưa quay sẽ để trống. ${at}.`
     }
     const pct = result.total ? Math.round((result.filled / result.total) * 100) : 0
-    extra = (
-      <>
-        <div
-          className="progress"
-          role="progressbar"
-          aria-label="Số con số đã quay"
-          aria-valuemin={0}
-          aria-valuemax={result.total}
-          aria-valuenow={result.filled}
-        >
-          <div style={{ width: `${pct}%` }} />
-        </div>
-        {auto}
-      </>
+    progress = (
+      <div
+        className="progress"
+        role="progressbar"
+        aria-label="Số con số đã quay"
+        aria-valuemin={0}
+        aria-valuemax={result.total}
+        aria-valuenow={result.filled}
+      >
+        <div style={{ width: `${pct}%` }} />
+      </div>
     )
+    extra = auto
   } else if (result.status === 'none') {
     kind = 'none'
     icon = <Clock />
@@ -137,7 +137,8 @@ export function StatusCard(props: {
           <span className="status-desc">{desc}</span>
         </div>
       </div>
-      {extra}
+      {extra && <div className="status-extra">{extra}</div>}
+      {progress}
     </section>
   )
 }

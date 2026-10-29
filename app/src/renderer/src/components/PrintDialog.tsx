@@ -1,13 +1,14 @@
 import { useEffect, useRef } from 'react'
 import type { PrinterItem } from '../../../shared/api'
 import { CompactInput } from './CompactInput'
-import { Download, Printer } from './icons'
+import { Printer } from './icons'
 import { PrinterSelect } from './PrinterSelect'
 import { SheetPreview } from './SheetPreview'
 
 /**
  * Bước xem trước khi in: trang in đúng như sẽ ra giấy (phóng to được), chọn máy in và số tờ,
- * rồi mới in. Chạy được cả khi máy chưa cài máy in (khi đó gợi ý lưu PDF).
+ * rồi mới in. Chạy được cả khi máy chưa cài máy in (khi đó khoá nút In và báo rõ).
+ * Không có nút lưu PDF ở đây (chủ dự án bỏ 29-10-2026): lưu file ở mục Lưu file của màn chính.
  */
 export function PrintDialog(props: {
   html: string
@@ -27,7 +28,6 @@ export function PrintDialog(props: {
   onDeviceName: (name: string | null) => void
   busy: boolean
   onPrint: () => void
-  onSavePdf: () => void
   onClose: () => void
 }) {
   const p = props
@@ -79,7 +79,7 @@ export function PrintDialog(props: {
           {noPrinter ? (
             <p className="print-note warn" role="status">
               Máy này chưa cài máy in nào nên chưa in được. Cài hoặc cắm máy in rồi bấm nút tìm lại ở trên.
-              Trong lúc chờ có thể lưu PDF để in ở máy khác.
+              Cần in ở máy khác thì đóng hộp này và lưu PDF ở mục Lưu file.
             </p>
           ) : (
             <p className="print-note">
@@ -94,11 +94,7 @@ export function PrintDialog(props: {
               <Printer />
               {p.busy ? 'Đang gửi lệnh in…' : p.deviceName ? `In ${p.copies} tờ` : 'In…'}
             </button>
-            <button type="button" className="btn" onClick={p.onSavePdf} disabled={p.busy}>
-              <Download />
-              Lưu PDF thay thế
-            </button>
-            <button type="button" className="btn ghost" onClick={p.onClose} disabled={p.busy}>Đóng</button>
+            <button type="button" className="btn" onClick={p.onClose} disabled={p.busy}>Đóng</button>
           </div>
           <p className="hint">Phóng to: nút + ở góc, Ctrl/⌘ + con lăn chuột, hoặc nhấp đúp lên trang.</p>
         </div>

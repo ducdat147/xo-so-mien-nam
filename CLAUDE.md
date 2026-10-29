@@ -53,7 +53,9 @@ nhập/xuất cấu hình bằng file `.conf` (KEY=VALUE), nhận cả khoá ki�
 - In: bấm In mở **bước xem trước khi in** trong app (không dựa vào hộp thoại hệ thống vì Windows
   không có xem trước, máy chưa cài máy in thì hộp thoại không mở). Có máy in cụ thể → in thẳng;
   không → hộp thoại hệ thống. In lỗi thì báo lỗi, **không** tự xuất/mở file PDF.
-  Cột trái màn Kết quả chia nhóm **In phiếu** và **Lưu file** riêng. Code in ở `main/print.ts`.
+  Cột trái màn Kết quả chia nhóm **In phiếu** và **Lưu file** riêng; Khổ giấy và "In phiếu trống"
+  nằm đầu nhóm In phiếu. Dải trạng thái kết quả nằm bên phải, trên khung xem trước (chủ dự án
+  chuyển cả ba 29-10-2026). Code in ở `main/print.ts`.
 
 ## Lưu ý kỹ thuật
 

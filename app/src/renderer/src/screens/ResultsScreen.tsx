@@ -124,7 +124,7 @@ export function ResultsScreen(props: {
   // ------------------------------------------------------------ lấy kết quả
   const key = formatDate(date)
   const reqId = useRef(0)
-  /** `quiet`: lần hỏi lại lúc đang quay trực tiếp, không bật trạng thái "Đang lấy kết quả…". */
+  /** `quiet`: lần hỏi lại lúc đang quay trực tiếp, không bật trạng thái "Đang làm mới…" của nút. */
   const load = useCallback(async (d: DateVN, force: boolean, quiet = false) => {
     const id = ++reqId.current
     if (!quiet) setLoading(true)
@@ -307,48 +307,45 @@ export function ResultsScreen(props: {
                 setDate(compareDate(d, today) > 0 ? today : d)
               }}
             />
-            <div className="row">
+            {/* Nút của ngày đang xem tô đậm như Khổ giấy; chọn ngày khác trong lịch thì cả hai bỏ chọn */}
+            <div className="row" role="group" aria-label="Chọn nhanh ngày">
               <button
                 type="button"
-                className="btn grow"
+                className="btn grow quick"
+                aria-pressed={isToday}
                 onClick={() => setDate(todayVN())}
                 disabled={beforeDraw}
                 title={beforeDraw ? 'Kết quả hôm nay có từ 16h' : undefined}
               >
                 Hôm nay
               </button>
-              <button type="button" className="btn grow" onClick={() => setDate(addDays(todayVN(), -1))}>Hôm qua</button>
+              <button
+                type="button"
+                className="btn grow quick"
+                aria-pressed={sameDate(date, addDays(todayVN(), -1))}
+                onClick={() => setDate(addDays(todayVN(), -1))}
+              >
+                Hôm qua
+              </button>
             </div>
             <p className="hint">{weekdayName(date)} · {scheduleFor(weekday(date)).map(dayLineName).join(', ')}</p>
             {beforeDraw && <p className="hint">Chưa tới 16h nên chưa có kết quả hôm nay.</p>}
           </div>
 
-          <Segmented id="kho-label" label="Khổ giấy" options={PAPER_OPTIONS} value={paper} onChange={setPaper} variant="tall" />
+          {/* App tự lấy khi mở và khi đổi ngày, nút này chỉ để ép tải lại: để chìm (chủ dự án chỉnh 29-10-2026) */}
+          <button type="button" className="btn subtle" onClick={() => load(date, true)} disabled={loading}>
+            <Refresh spinning={loading} />
+            {loading ? 'Đang làm mới…' : 'Làm mới kết quả'}
+          </button>
+        </section>
 
+        <section className="card tight" aria-labelledby="h-in-phieu">
+          <h2 id="h-in-phieu" className="card-title"><Printer /> In phiếu</h2>
+          <Segmented id="kho-label" label="Khổ giấy" options={PAPER_OPTIONS} value={paper} onChange={setPaper} variant="tall" />
           <label className="check">
             <input type="checkbox" checked={blank} onChange={(e) => setBlank(e.target.checked)} />
             <span>In phiếu trống (chưa có số)</span>
           </label>
-
-          <button type="button" className="btn primary" onClick={() => load(date, true)} disabled={loading}>
-            <Refresh spinning={loading} />
-            {loading ? 'Đang lấy kết quả…' : 'Lấy kết quả'}
-          </button>
-        </section>
-
-        <StatusCard
-          date={date}
-          result={current}
-          autoRefresh={autoRefresh}
-          onAutoRefresh={setAutoRefresh}
-          canAutoRefresh={isToday}
-          onRetry={() => load(date, true)}
-          retrying={loading}
-          online={online}
-        />
-
-        <section className="card tight" aria-labelledby="h-in-phieu">
-          <h2 id="h-in-phieu" className="card-title"><Printer /> In phiếu</h2>
           <PrinterSelect
             id="may-in"
             label="Máy in"
@@ -414,6 +411,17 @@ export function ResultsScreen(props: {
           </div>
           <span className="caption">{paperCaption(sheet.layout)}</span>
         </div>
+        {/* Dải thông báo trên khung xem trước: nói về đúng nội dung đang xem (chủ dự án chọn 29-10-2026) */}
+        <StatusCard
+          date={date}
+          result={current}
+          autoRefresh={autoRefresh}
+          onAutoRefresh={setAutoRefresh}
+          canAutoRefresh={isToday}
+          onRetry={() => load(date, true)}
+          retrying={loading}
+          online={online}
+        />
         {sheet.layout.warnings.length > 0 && (
           <ul className="warnings">{sheet.layout.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
         )}
@@ -426,7 +434,7 @@ export function ResultsScreen(props: {
             label={`Xem trước bản in khổ ${paper}`}
           />
         ) : (
-          <ResultTable stations={tableStations} live={!!current?.live} />
+          <ResultTable stations={tableStations} font={font} live={!!current?.live} />
         )}
       </main>
 
@@ -451,7 +459,6 @@ export function ResultsScreen(props: {
           onDeviceName={(name) => patchSettings({ printer: { deviceName: name } })}
           busy={busy === 'print'}
           onPrint={async () => { if (await doPrint()) setShowPrint(false) }}
-          onSavePdf={() => { setShowPrint(false); save('pdf') }}
           onClose={() => setShowPrint(false)}
         />
       )}

@@ -149,7 +149,7 @@ tiếp (~230 KB) chỉ tải lần đầu gặp mã tỉnh lạ hoặc khi mọi
 đều lỗi. Máy chủ lỗi thì chuyển sang máy kế tiếp.
 
 - `run` = 1 và còn thiếu số → dùng luôn (`partial`), không tải trang kết quả; renderer hỏi lại
-  sau 5 giây, không bật trạng thái "Đang lấy kết quả…".
+  sau 5 giây, không bật trạng thái "Đang làm mới…" của nút.
 - Quay xong feed vẫn để `run` = 1 thêm một lúc (chụp 16h36, `delay` đổi sang 5000). Đủ số rồi
   thì tải trang kết quả: trang đủ số thì dùng trang và cache; chưa đủ thì dùng bảng trực tiếp
   (không cache).
@@ -174,7 +174,7 @@ Giữ mượt cho người dùng (chủ dự án yêu cầu 29-10-2026):
 ### Cache
 
 Chỉ cache khi `ok` (đủ số): `userData/cache/DD-MM-YYYY.html`. Lần sau lấy lại
-ngày đó dùng cache; nút "Lấy kết quả" có thể ép tải lại.
+ngày đó dùng cache; nút "Làm mới kết quả" có thể ép tải lại.
 
 ---
 
@@ -415,13 +415,16 @@ Cột trái (≈320px):
   quay; để app mở qua 16h thì tự chuyển sang hôm nay nếu người dùng chưa tự chọn ngày).
   Trước 16h nút "Hôm nay" bị khoá, kèm dòng "Chưa tới 16h nên chưa có kết quả hôm nay."
   Lịch chỉ chọn tới **hôm nay** (giờ VN, `max` của ô ngày); gõ tay ngày sau đó thì đưa về hôm nay. + nút "Hôm nay", "Hôm qua";
+  nút của ngày đang xem tô đậm như ô đang chọn của Khổ giấy (`aria-pressed`), chọn ngày khác
+  trong lịch thì cả hai bỏ chọn (chủ dự án yêu cầu 29-10-2026);
   dòng phụ: "Thứ Hai · TP.HCM, Đồng Tháp, Cà Mau" (theo lịch).
-- **Khổ giấy**: 3 nút A4 (4 bản/tờ) · A5 (2 bản/tờ) · A6 (1 bản/tờ). Mặc định lấy từ cài đặt.
-- **Định dạng khi lưu**: PDF · Word · Cả hai.
-- Ô **"In phiếu trống (chưa có số)"**.
-- Nút **Lấy kết quả** (tự chạy khi mở app và khi đổi ngày).
-- **Thẻ trạng thái** theo §3 (ok / đang quay / chưa có / lỗi) + "Tự lấy lại mỗi 2 phút".
-- Nhóm **In phiếu** (thẻ riêng, chủ dự án yêu cầu 28-10-2026): **Máy in** ("Hộp thoại in của
+- Nút **Làm mới kết quả** (app tự lấy khi mở và khi đổi ngày, nút chỉ để ép tải lại nên để kiểu
+  chìm: không viền, nền xám nhạt, thấp hơn nút thường; đang tải ghi "Đang làm mới…"; chủ dự án
+  đổi tên và giảm độ nổi 29-10-2026).
+- Nhóm **In phiếu** (thẻ riêng, chủ dự án yêu cầu 28-10-2026): trên cùng là **Khổ giấy**, 3 nút
+  A4 (4 bản/tờ) · A5 (2 bản/tờ) · A6 (1 bản/tờ), mặc định lấy từ cài đặt, rồi ô **"In phiếu trống
+  (chưa có số)"** (chủ dự án chuyển cả hai từ thẻ Ngày xổ xuống đây 29-10-2026; hai lựa chọn này
+  dùng chung cho bản xem trước và file lưu, tên file có ghi khổ và `_trong`). Sau đó **Máy in** ("Hộp thoại in của
   hệ thống" hoặc một máy in đã cài, nút tìm lại; chọn ở đây được lưu ngay vào
   `printer.deviceName`), **Số bản in** tính theo **tờ**, tối thiểu 1 (ô gọn [biểu tượng hai tờ | 1–99 | tờ], kèm dòng
   "2 tờ A4 = 8 phiếu"; mặc định `printer.copies`), ô **"In nhanh, bỏ qua bước xem trước"**
@@ -433,12 +436,17 @@ Cột trái (≈320px):
 - Phím tắt: Ctrl/⌘+P = như nút In, Ctrl/⌘+S = lưu theo "Loại file".
 - **Xem trước khi in** (hộp lớn trên màn hình, chạy cả khi máy chưa cài máy in): trang in đúng
   như ra giấy, chọn máy in và số tờ, nút **In N tờ** (có máy in cụ thể → in thẳng, không hỏi lại)
-  hoặc **In…** (mở hộp thoại in của hệ thống), **Lưu PDF thay thế**, **Đóng** (Esc). Máy chưa có
-  máy in → khoá nút In, báo rõ và gợi ý lưu PDF.
+  hoặc **In…** (mở hộp thoại in của hệ thống), **Đóng** (Esc; nút có viền như nút thường). Không có
+  nút lưu PDF trong hộp này (chủ dự án bỏ 29-10-2026). Máy chưa có máy in → khoá nút In, báo rõ
+  và chỉ sang mục Lưu file nếu cần PDF để in ở máy khác.
 
 Bên phải:
 - Nút chuyển **Xem trước bản in** | **Bảng kết quả** + chú thích khổ
   ("A4 đứng · 4 bản · mỗi phiếu 8 × 13,6 cm · cách nhau 0,6 cm").
+- **Dải trạng thái** theo §3 (ok / đang quay / sắp quay / chưa có / lỗi / mất mạng) nằm ngay dưới
+  thanh đó, trên khung xem trước, vì nó nói về đúng nội dung đang xem (chủ dự án chuyển từ cột trái
+  sang 29-10-2026). Chữ bên trái (tiêu đề và mô tả trên một dòng nếu đủ chỗ); bên phải là ô "Tự
+  lấy lại…" hoặc nút Thử lại; lúc đang quay có thanh tiến độ mảnh dọc mép dưới.
 - *Xem trước bản in*: đúng trang in (HTML từ `render-html`, ghi thẳng vào iframe
   `sandbox="allow-same-origin"`, thu nhỏ cho vừa). Phiếu trống → nhãn "Phiếu trống".
   **Phóng to** (chủ dự án yêu cầu 28-10-2026): thanh − / % / + / Vừa khung / Cỡ thật ở góc,
@@ -446,7 +454,9 @@ Bên phải:
   trở về vừa khung, đang phóng to thì kéo chuột để di chuyển. Dùng chung cho màn Cài đặt và
   bước Xem trước khi in.
 - *Bảng kết quả*: bảng chữ lớn để đọc trên màn hình: cột đài (tên đầy đủ + mã vé
-  như "XSHCM · 10E2"), giải ĐB nổi bật màu nhấn; ô chưa quay ghi "Chờ quay…".
+  như "XSHCM · 10E2"), giải ĐB nổi bật màu nhấn; ô chưa quay ghi "Chờ quay…". Số trong bảng
+  dùng font phiếu đã chọn trong Cài đặt, cùng chuỗi `font-family` với trang in (máy thiếu font thì
+  cùng rơi về font dự phòng như bản in; chủ dự án yêu cầu 29-10-2026).
 
 ### 7.2 Màn Cài đặt (`design/CaiDat.dc.html`)
 
