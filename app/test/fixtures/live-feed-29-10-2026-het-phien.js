@@ -1,0 +1,1 @@
+kqxs.mn={run:0,tinh:"13,14,15",ntime:1793264429,delay:5000};

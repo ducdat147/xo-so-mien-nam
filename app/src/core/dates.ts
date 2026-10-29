@@ -26,6 +26,15 @@ export function isBeforeDraw(now: Date = new Date()): boolean {
   return new Date(now.getTime() + VN_OFFSET_MS).getUTCHours() < DRAW_START_HOUR
 }
 
+/** Hết giờ hỏi bảng trực tiếp (giờ VN). Phiên quay thường 16h07–16h35. */
+export const LIVE_END_HOUR = 17
+
+/** Trong khung 16h–17h giờ VN: chỉ lúc này mới hỏi bảng trực tiếp của minhngoc. */
+export function isLiveWindow(now: Date = new Date()): boolean {
+  const h = new Date(now.getTime() + VN_OFFSET_MS).getUTCHours()
+  return h >= DRAW_START_HOUR && h < LIVE_END_HOUR
+}
+
 /** Ngày mở sẵn khi vào app: trước 16h chưa có kết quả hôm nay nên lấy ngày hôm qua. */
 export function defaultDrawDate(now: Date = new Date()): DateVN {
   const today = todayVN(now)

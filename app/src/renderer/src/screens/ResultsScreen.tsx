@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  addDays, compareDate, defaultDrawDate, formatDate, isBeforeDraw, parseDate, sameDate, todayVN, toIsoDate, weekday, weekdayName, type DateVN
+  addDays, compareDate, defaultDrawDate, formatDate, isBeforeDraw, isLiveWindow, parseDate, sameDate, todayVN, toIsoDate, weekday, weekdayName, type DateVN
 } from '../../../core/dates'
 import { PAPER_SPECS, TWIPS_PER_CM, viNumber, type SheetLayout } from '../../../core/layout'
 import { renderHtml } from '../../../core/render-html'
@@ -38,12 +38,18 @@ const FILE_EXT: Record<OutputFormat, string> = { pdf: '.pdf', docx: '.docx', bot
 const SAVE_LABEL: Record<OutputFormat, string> = { pdf: 'Lưu PDF', docx: 'Lưu Word', both: 'Lưu PDF và Word' }
 
 const AUTO_REFRESH_MS = 2 * 60 * 1000
+/** Đang quay trực tiếp: 5 giây hỏi lại một lần (mỗi lần vài trăm byte; trang minhngoc hỏi mỗi 1,2 giây). */
+const LIVE_REFRESH_MS = 5000
 /** Trước giờ quay thì đợi tới 16:10 mới bắt đầu hỏi lại. */
 const DRAW_START_MIN = 16 * 60 + 10
 const MM_TO_PX = 96 / 25.4
 
-function nextRefreshDelay(status: LoadedResult['status']): number {
-  if (status !== 'none') return AUTO_REFRESH_MS
+/** Đang lấy từ bảng trực tiếp và còn trong khung 16h–17h: hỏi dồn. */
+const liveNow = (r: LoadedResult) => !!r.live && isLiveWindow()
+
+function nextRefreshDelay(r: LoadedResult): number {
+  if (liveNow(r)) return LIVE_REFRESH_MS
+  if (r.status !== 'none') return AUTO_REFRESH_MS
   const t = new Date(Date.now() + 7 * 3600 * 1000)
   const left = DRAW_START_MIN * 60 - (t.getUTCHours() * 3600 + t.getUTCMinutes() * 60 + t.getUTCSeconds())
   return left > 0 ? left * 1000 : AUTO_REFRESH_MS
@@ -95,6 +101,7 @@ export function ResultsScreen(props: {
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState<Busy>(null)
   const [toast, setToast] = useState<ToastData | null>(null)
+  const [showPrint, setShowPrint] = useState(false)
   const { printers, loading: findingPrinters, refresh: refreshPrinters } = usePrinters()
   const deviceName = settings.printer.deviceName
   const silent = settings.printer.silent && !!deviceName
@@ -117,9 +124,10 @@ export function ResultsScreen(props: {
   // ------------------------------------------------------------ lấy kết quả
   const key = formatDate(date)
   const reqId = useRef(0)
-  const load = useCallback(async (d: DateVN, force: boolean) => {
+  /** `quiet`: lần hỏi lại lúc đang quay trực tiếp, không bật trạng thái "Đang lấy kết quả…". */
+  const load = useCallback(async (d: DateVN, force: boolean, quiet = false) => {
     const id = ++reqId.current
-    setLoading(true)
+    if (!quiet) setLoading(true)
     try {
       const r = await api.fetchResults(d, force)
       if (id !== reqId.current) return
@@ -143,11 +151,21 @@ export function ResultsScreen(props: {
   const isToday = sameDate(date, todayVN())
   const waiting = !!current && (current.status === 'partial' || current.status === 'none')
 
+  // Đang xem trước khi in / đang in / đang lưu thì tạm dừng: bản in đúng bản vừa xem, số không nhảy giữa chừng
+  const paused = showPrint || !!busy
   useEffect(() => {
-    if (!autoRefresh || !waiting || !isToday || !current) return
-    const t = setTimeout(() => load(date, true), nextRefreshDelay(current.status))
+    if (!autoRefresh || !waiting || !isToday || !current || paused) return
+    const t = setTimeout(() => load(date, true, liveNow(current)), nextRefreshDelay(current))
     return () => clearTimeout(t)
-  }, [autoRefresh, waiting, isToday, current, date, load])
+  }, [autoRefresh, waiting, isToday, current, date, load, paused])
+
+  // Cửa sổ thu nhỏ lâu thì Chromium giãn hẹn giờ: mở lại lúc đang quay là lấy số mới ngay
+  useEffect(() => {
+    if (!autoRefresh || !current || !liveNow(current) || paused) return
+    const onShow = () => { if (document.visibilityState === 'visible') load(date, true, true) }
+    document.addEventListener('visibilitychange', onShow)
+    return () => document.removeEventListener('visibilitychange', onShow)
+  }, [autoRefresh, current, date, load, paused])
 
   // Máy chủ minhngoc lỗi: 2 phút thử lại một lần, ngày nào cũng vậy
   const serverDown = current?.status === 'error' && current.errorKind === 'server'
@@ -211,8 +229,6 @@ export function ResultsScreen(props: {
       setBusy(null)
     }
   }, [sheetReq])
-
-  const [showPrint, setShowPrint] = useState(false)
 
   /** Gửi lệnh in. Có máy in cụ thể thì in thẳng; không thì mở hộp thoại in của hệ thống. */
   const doPrint = useCallback(async (): Promise<boolean> => {
@@ -410,7 +426,7 @@ export function ResultsScreen(props: {
             label={`Xem trước bản in khổ ${paper}`}
           />
         ) : (
-          <ResultTable stations={tableStations} />
+          <ResultTable stations={tableStations} live={!!current?.live} />
         )}
       </main>
 

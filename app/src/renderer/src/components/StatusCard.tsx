@@ -42,7 +42,7 @@ export function StatusCard(props: {
   const auto = canAutoRefresh && (
     <label className="check small">
       <input type="checkbox" checked={autoRefresh} onChange={(e) => onAutoRefresh(e.target.checked)} />
-      <span>Tự lấy lại mỗi 2 phút đến khi đủ</span>
+      <span>{result?.live ? 'Tự cập nhật trực tiếp đến khi đủ' : 'Tự lấy lại mỗi 2 phút đến khi đủ'}</span>
     </label>
   )
 
@@ -78,13 +78,20 @@ export function StatusCard(props: {
       (result.fromCache ? 'đã lưu trên máy' : `cập nhật ${vnClock(result.fetchedAt)}`)
   } else if (result.status === 'partial') {
     const n = drawnPrizes(result)
+    const at = `Cập nhật ${vnClock(result.fetchedAt)}` + (result.stale ? ', đang thử kết nối lại' : '')
     kind = 'live'
     icon = <Live />
-    title = 'Đang quay trực tiếp'
-    desc =
-      `Đã có ${n}/${PRIZES.length} giải` +
-      (n > 0 ? ` (từ ${prizeName(0)} đến ${prizeName(n - 1)})` : '') +
-      `. Ô chưa quay sẽ để trống. Cập nhật ${vnClock(result.fetchedAt)}.`
+    if (result.live && result.filled === 0) {
+      // Phiên trực tiếp mở từ 16h, khoảng 16h15 mới quay giải đầu
+      title = 'Sắp quay trực tiếp'
+      desc = (autoRefresh ? 'Chưa ra giải nào, số sẽ tự hiện ngay khi quay. ' : 'Chưa ra giải nào. ') + `${at}.`
+    } else {
+      title = 'Đang quay trực tiếp'
+      desc =
+        `Đã có ${n}/${PRIZES.length} giải` +
+        (n > 0 ? ` (từ ${prizeName(0)} đến ${prizeName(n - 1)})` : '') +
+        `. Ô chưa quay sẽ để trống. ${at}.`
+    }
     const pct = result.total ? Math.round((result.filled / result.total) * 100) : 0
     extra = (
       <>

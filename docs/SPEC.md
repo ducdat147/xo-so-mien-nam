@@ -50,6 +50,7 @@ app/
     stations.ts      danh sách đài, tên viết tắt, lịch quay (§4)
     dates.ts         ngày VN, thứ, định dạng
     source.ts        tải trang minhngoc + cache (§3)
+    live.ts          bảng trực tiếp lúc đang quay (§3)
     parse.ts         parse HTML → kết quả (§3)
     select.ts        chọn & sắp xếp đài theo cài đặt (§5)
     settings.ts      mặc định, chuẩn hoá JSON (§5)
@@ -114,7 +115,61 @@ Lỗi chia 3 loại (`errorKind`, chủ dự án yêu cầu 28-10-2026):
   được trang kết quả".
 
 XSMN quay khoảng **16h15–16h35** giờ VN. Với `partial`/`none` có tuỳ chọn
-**"Tự lấy lại mỗi 2 phút đến khi đủ"** (bật sẵn).
+**"Tự lấy lại mỗi 2 phút đến khi đủ"** (bật sẵn). Đang lấy từ bảng trực tiếp thì nhãn thành
+**"Tự cập nhật trực tiếp đến khi đủ"** và 5 giây hỏi lại một lần (xem dưới).
+
+### Bảng trực tiếp (đã kiểm chứng lúc đang quay 29-10-2026)
+
+Trong lúc quay, trang kết quả theo ngày vẫn hiện bảng **hôm qua** đầu tiên (chụp 16h23), tới lúc
+quay xong mới có số. Số quay tới đâu chỉ có ở trang `xo-so-truc-tiep/mien-nam.html`: trang này
+hỏi file `/xstt/js_m1.js` trên các máy chủ `server-liveNN.minhngoc.net.vn` (danh sách nằm trong
+biến `rawDomainStr` của trang) khoảng 1,2 giây một lần. File chỉ vài trăm byte:
+
+```
+kqxs.mn={run:1,tinh:"13,14,15",ntime:1793264429,delay:1200,kq:{
+  13:{lv:"10K5",8:"15",7:"009",6:["0969","9301","9684"],5:"1293",4:[…7 số…],
+      3:["49657","+++++"],2:"*****",1:"*****",0:"******"}, 14:{…}, 15:{…}}};
+```
+
+- `run` = 1 khi đang quay; `ntime` = giờ mở phiên (giây Unix) → ngày của phiên, phải trùng
+  ngày yêu cầu; `tinh` = mã tỉnh của minhngoc theo thứ tự trên web.
+- `kq[mã tỉnh]`: `lv` ký hiệu vé (mã vé chỉ có phần này, không có tiền tố `XSxx -`); khoá
+  `8`…`1` là giải Tám…Nhất, `0` là ĐB. `+++++` là ô đang quay, `*****` là ô chưa tới lượt:
+  chỉ nhận chuỗi toàn chữ số.
+- Mã tỉnh → đài chỉ tra được trong HTML trang trực tiếp: cột đài có `td.tinh a[href]` (slug như
+  §3) và `span#loaive_<mã tỉnh>`. Mã tỉnh chưa tra được thì bỏ bảng trực tiếp, **không** đoán
+  theo lịch (sai đài là in sai số).
+- Ô đang quay trên trang trực tiếp chứa chữ số chạy ngẫu nhiên (`span.runLoto`): **không**
+  parse số từ HTML trang này, chỉ lấy bảng mã tỉnh.
+- File là mã JS tải về: **không eval**, chuyển object literal sang JSON rồi `JSON.parse`.
+
+Chỉ hỏi bảng trực tiếp khi lấy **ngày hôm nay** và đang trong khung **16h–17h** giờ VN; ngoài
+khung đó app không đụng tới máy chủ trực tiếp. Mỗi lần hỏi chỉ tải `js_m1.js`; trang trực
+tiếp (~230 KB) chỉ tải lần đầu gặp mã tỉnh lạ hoặc khi mọi máy chủ trong danh sách mặc định
+đều lỗi. Máy chủ lỗi thì chuyển sang máy kế tiếp.
+
+- `run` = 1 và còn thiếu số → dùng luôn (`partial`), không tải trang kết quả; renderer hỏi lại
+  sau 5 giây, không bật trạng thái "Đang lấy kết quả…".
+- Quay xong feed vẫn để `run` = 1 thêm một lúc (chụp 16h36, `delay` đổi sang 5000). Đủ số rồi
+  thì tải trang kết quả: trang đủ số thì dùng trang và cache; chưa đủ thì dùng bảng trực tiếp
+  (không cache).
+- Hết phiên feed chỉ còn `kqxs.mn={run:0,tinh:"13,14,15",ntime:…,delay:5000};`, không có `kq`
+  (chụp 16h38) → như chưa có bảng trực tiếp, đọc trang kết quả. Feed tải được mà rỗng thì không
+  hỏi máy khác.
+- Lỡ một lần hỏi lỗi giữa phiên quay: main trả lại bảng đang có, đánh dấu `stale` (màn hình, in,
+  lưu vẫn cùng một bảng); thẻ trạng thái thêm "đang thử kết nối lại", renderer hỏi tiếp. Hết
+  khung 16h–17h thì báo lỗi như thường.
+- Máy chủ trực tiếp lỗi hết → chạy như chưa có bảng trực tiếp. Mỗi máy chờ tối đa 4 giây (trang
+  web chờ 5 giây) để lần lấy đầu không bị đứng lâu.
+
+Giữ mượt cho người dùng (chủ dự án yêu cầu 29-10-2026):
+- Đang mở "Xem trước khi in", đang in hoặc đang lưu thì tạm dừng tự lấy lại: bản in đúng bản vừa
+  xem, số không nhảy giữa chừng. Đóng hộp thì hỏi tiếp.
+- Cửa sổ thu nhỏ lâu thì Chromium giãn hẹn giờ; mở lại lúc đang quay là lấy số mới ngay.
+- Phiên đã mở mà chưa ra giải nào (16h–16h15): thẻ ghi "Sắp quay trực tiếp", không ghi "đang quay
+  0/9 giải".
+- Bảng kết quả tô vàng nhạt số vừa ra rồi tắt dần (2,5 giây; tắt nếu máy bật giảm chuyển động).
+  Số có sẵn lúc mở bảng không tô. Khung xem trước ghi thẳng vào iframe nên không nháy trắng.
 
 ### Cache
 
@@ -523,6 +578,8 @@ Tên file: `xsmn_DD-MM-YYYY_A4.pdf` / `.docx`; phiếu trống thêm `_trong`. T
 Unit (vitest, `core/` không cần Electron):
 - `parse`: fixture 26-10-2026 (3 đài, HTML lỗi thiếu `</td>`) và 24-10-2026 (4 đài) →
   đúng slug, đủ 18 số/đài, đúng thứ tự; ngày lệch → `none`; thiếu số → `partial`.
+- `live`: feed và trang trực tiếp chụp lúc đang quay 29-10-2026 → bỏ ô `+++++`/`*****`, tra đúng
+  đài; chỉ hỏi trong khung 16h–17h của hôm nay; máy chủ lỗi thì đổi máy, lỗi hết thì như cũ.
 - `select`: mode all/pick, thứ tự, đài tắt, tắt hết → in đủ, đài lạ.
 - `layout`: với mọi khổ × 3/4 đài × header mặc định/ẩn bớt/cỡ to: tổng chiều cao cột
   ≤ chiều cao vùng in; số 6 chữ số vừa ô; cỡ số mặc định khớp §6.4.
@@ -532,5 +589,5 @@ Thủ công / e2e:
 - PDF A4/A5/A6 mỗi file 1 trang, đúng kích thước giấy, đặt cạnh PDF trong
   `design/reference/` gần như trùng.
 - Mở .docx bằng Word trên mac & Windows: không lỗi, 1 trang.
-- Chạy lúc 16h20 (đang quay) → partial, tự lấy lại tới khi đủ.
+- Chạy lúc 16h20 (đang quay) → partial từ bảng trực tiếp, số mới hiện sau vài giây, tới khi đủ.
 - In ra giấy thật: đo phiếu 8 cm, cách 0,6 cm; số cách lề phải ô 0,3 cm.

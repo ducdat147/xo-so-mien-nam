@@ -3,7 +3,8 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { DateVN } from './dates'
-import { formatDate } from './dates'
+import { formatDate, isLiveWindow, sameDate, todayVN } from './dates'
+import type { LiveSource } from './live'
 import { errorResult, parseResults, type DayResult } from './parse'
 
 export const SOURCE_BASE = 'https://www.minhngoc.net.vn/ket-qua-xo-so/mien-nam'
@@ -36,12 +37,18 @@ export interface LoadOptions extends FetchPageOptions {
   cacheDir?: string
   /** Bỏ qua cache, tải lại. */
   force?: boolean
+  /** Nguồn trực tiếp (chỉ hỏi khi lấy ngày hôm nay, trong khung 16h–17h); bỏ trống = chỉ đọc trang kết quả. */
+  live?: LiveSource
 }
 
 export interface LoadedResult extends DayResult {
   fromCache: boolean
   /** Thời điểm tải (ISO). */
   fetchedAt: string
+  /** Lấy từ bảng trực tiếp lúc đang quay: vài giây sau hỏi lại là có số mới. */
+  live?: boolean
+  /** Đang quay mà lần hỏi gần nhất lỗi: đây là bảng của lần trước. */
+  stale?: boolean
 }
 
 export function sourceUrl(date: DateVN): string {
@@ -93,10 +100,10 @@ function anySignal(...signals: AbortSignal[]): AbortSignal {
   return ctl.signal
 }
 
-export async function fetchPage(date: DateVN, opts: FetchPageOptions = {}): Promise<string> {
-  const doFetch: FetchLike = opts.fetch ?? ((url, init) => fetch(url, init))
+/** Tải một trang của minhngoc, có thử lại khi máy chủ lỗi. */
+export async function fetchText(url: string, opts: FetchPageOptions = {}): Promise<string> {
+  const doFetch: FetchLike = opts.fetch ?? ((u, init) => fetch(u, init))
   const retries = opts.retries ?? 2
-  const url = sourceUrl(date)
   let lastError: unknown
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) await sleep(opts.retryDelayMs ?? 2000, opts.signal)
@@ -150,11 +157,24 @@ export async function loadResults(date: DateVN, opts: LoadOptions = {}): Promise
     }
   }
 
+  // Hôm nay, 16h–17h: hỏi bảng trực tiếp trước. Trong lúc quay, trang kết quả theo ngày còn hiện
+  // bảng hôm qua (chụp 16h23 ngày 29-10-2026), có khi tới lúc quay xong mới có số.
+  // Ngoài khung giờ đó không đụng tới máy chủ trực tiếp.
+  const live =
+    opts.live && isLiveWindow() && sameDate(date, todayVN())
+      ? await opts.live.load(date, opts).catch(() => null)
+      : null
+  if (opts.signal?.aborted) throw opts.signal.reason
+  const fromLive: LoadedResult | null = live && { ...live.result, fromCache: false, fetchedAt: now(), live: live.running }
+  // Quay xong thì feed vẫn để run = 1 thêm một lúc (chụp 16h36): đủ số rồi thì tải trang kết quả để cache
+  if (fromLive?.live && fromLive.status !== 'ok') return fromLive
+
   let html: string
   try {
-    html = await fetchPage(date, opts)
+    html = await fetchText(sourceUrl(date), opts)
   } catch (e) {
     if (opts.signal?.aborted) throw e
+    if (fromLive) return fromLive
     const fe = classifyNetworkError(e)
     return { ...errorResult(date, fe.message, fe.kind), fromCache: false, fetchedAt: now() }
   }
@@ -168,5 +188,7 @@ export async function loadResults(date: DateVN, opts: LoadOptions = {}): Promise
       await rm(file, { force: true })
     }
   }
+  // Quay xong mà trang kết quả chưa kịp cập nhật: dùng bảng trực tiếp (không cache, lần sau tải lại trang)
+  if (fromLive && result.status !== 'ok' && fromLive.filled > result.filled) return fromLive
   return { ...result, fromCache: false, fetchedAt: now() }
 }

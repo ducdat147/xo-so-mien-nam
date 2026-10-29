@@ -232,6 +232,10 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .kq-num { font-family: 'Times New Roman', Times, serif; font-weight: 700; font-size: 21px; line-height: 28px; font-variant-numeric: tabular-nums; }
 .kq-row.db .kq-num { font-size: 28px; line-height: 34px; color: var(--accent); }
 .kq-pending { font-size: 13px; color: var(--muted); font-style: italic; }
+/* Số vừa ra lúc đang quay: nền vàng nhạt rồi tắt dần (ResultTable FRESH_MS) */
+.kq-num.fresh { border-radius: 4px; animation: kq-fresh 2.5s ease-out; }
+@keyframes kq-fresh { from { background: #fde68a; box-shadow: 0 0 0 4px #fde68a; } to { background: transparent; box-shadow: 0 0 0 4px transparent; } }
+@media (prefers-reduced-motion: reduce) { .kq-num.fresh { animation: none; } }
 
 /* thông báo */
 .toast {

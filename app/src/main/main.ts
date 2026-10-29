@@ -4,13 +4,14 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell, type MenuItemConstruc
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
-import { formatDate, isValidDate, type DateVN } from '../core/dates'
+import { formatDate, isLiveWindow, isValidDate, type DateVN } from '../core/dates'
 import { renderHtml } from '../core/render-html'
 import { exportConf, importConf } from '../core/conf'
 import { FORMATS, normalizeSettings, PAPERS, type Settings } from '../core/settings'
 import { readSettingsFile, writeSettingsFile } from '../core/settings-file'
 import type { FontScale } from '../core/layout'
 import { buildSheet, type SheetRequest } from '../core/sheet'
+import { LiveSource } from '../core/live'
 import { loadResults, type LoadedResult } from '../core/source'
 import { IPC, type ExportRequest, type InitialData, type PrintRequest, type PrintResult, type SettingsPatch } from '../shared/api'
 import { exportSheet } from './export'
@@ -32,6 +33,7 @@ let mainWindow: BrowserWindow | null = null
 let settings: Settings
 /** Kết quả đã tải theo ngày (DD-MM-YYYY): xuất file dùng đúng dữ liệu đang hiện trên màn hình. */
 const results = new Map<string, LoadedResult>()
+const live = new LiveSource()
 /** Chỉ cho mở những file app vừa ghi ra. */
 const exportedFiles = new Set<string>()
 
@@ -67,8 +69,13 @@ function registerIpc(): void {
     const r = await loadResults(checkDate(date), {
       fetch: httpFetch,
       cacheDir: cacheDir(),
-      force: !!force
+      force: !!force,
+      live
     })
+    // Đang quay mà lỡ một lần hỏi lỗi: trả lại bảng đang có (màn hình, in, lưu cùng một bảng),
+    // renderer vài giây sau hỏi tiếp. Hết khung 16h–17h thì báo lỗi như thường.
+    const prev = results.get(r.date)
+    if (r.status === 'error' && prev?.live && isLiveWindow()) return { ...prev, stale: true }
     results.set(r.date, r)
     return r
   })

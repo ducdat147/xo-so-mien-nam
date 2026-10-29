@@ -60,6 +60,9 @@ nhập/xuất cấu hình bằng file `.conf` (KEY=VALUE), nhận cả khoá ki�
 - HTML minhngoc **thiếu `</td>`** giữa các cột đài; chỉ lấy bảng `table.bkqmiennam`
   ĐẦU TIÊN; mã đài lấy từ `href` (`/xo-so-mien-nam/<slug>.html`); kiểm tra `td.ngay`
   đúng ngày yêu cầu, sai ngày nghĩa là chưa có kết quả.
+- Đang quay thì trang kết quả theo ngày còn hiện bảng hôm qua; số mới chỉ có ở bảng trực tiếp
+  (`core/live.ts`, file `js_m1.js` trên `server-liveNN`, SPEC §3). Chỉ hỏi trong 16h–17h của hôm
+  nay. Không parse số từ HTML trang trực tiếp: ô đang quay là chữ số chạy ngẫu nhiên.
 - Ngày/thứ luôn tính theo giờ Việt Nam (Asia/Ho_Chi_Minh), không theo múi giờ máy.
 - DOCX: trong `w:tblPr` thứ tự phải là `tblW, jc, tblBorders, tblLayout, tblCellMar`.
 - Electron: `contextIsolation` bật, `nodeIntegration` tắt; mạng và file chỉ ở main process.

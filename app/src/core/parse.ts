@@ -44,7 +44,7 @@ export function isComplete(st: StationResult): boolean {
   return PRIZES.every((k) => st.prizes[k].length >= PRIZE_COUNT[k])
 }
 
-function slugFromHref(href: string | undefined, name: string): string {
+export function slugFromHref(href: string | undefined, name: string): string {
   const m = href?.match(/\/([^/?#]+?)(?:\.html?)?(?:[?#].*)?$/)
   if (m) return m[1].toLowerCase()
   return name
