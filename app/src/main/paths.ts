@@ -1,7 +1,6 @@
 import { app } from 'electron'
 import { homedir } from 'node:os'
-import { dirname, isAbsolute, join } from 'node:path'
-import type { FontName } from '../core/settings'
+import { isAbsolute, join } from 'node:path'
 
 export const settingsFile = () => join(app.getPath('userData'), 'settings.json')
 export const cacheDir = () => join(app.getPath('userData'), 'cache')
@@ -17,13 +16,4 @@ export function resolveOutputDir(dir: string): string {
     return docs ? join(app.getPath('documents'), docs[1] ?? '') : join(homedir(), rest)
   }
   return isAbsolute(d) ? d : join(homedir(), d)
-}
-
-const FONT_PACKAGE: Record<FontName, () => string> = {
-  'Times New Roman': () => require.resolve('@fontsource/tinos/package.json'),
-  Arial: () => require.resolve('@fontsource/arimo/package.json')
-}
-
-export function fontPackageDir(font: FontName): string {
-  return dirname(FONT_PACKAGE[font]())
 }

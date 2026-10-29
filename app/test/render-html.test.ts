@@ -1,13 +1,9 @@
-import { dirname } from 'node:path'
-import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
-import { loadFontCss } from '../src/core/fonts'
 import { parseResults } from '../src/core/parse'
-import { renderHtml } from '../src/core/render-html'
+import { fontFamilyCss, renderHtml } from '../src/core/render-html'
 import { buildSheet, outputBaseName } from '../src/core/sheet'
 import { agentSettings, D26, HTML_26 } from './helpers'
 
-const require = createRequire(import.meta.url)
 const day26 = parseResults(HTML_26, D26)
 const count = (s: string, re: RegExp) => s.match(re)?.length ?? 0
 
@@ -24,7 +20,8 @@ describe('renderHtml', () => {
     expect(html).toContain('padding:22.7pt 102pt 22.7pt 22.7pt')
     expect(html).toContain('font-size:13.5pt;line-height:14.85pt')
     expect(html).toContain('>472899<')
-    expect(html).toContain("font-family:'Tinos', 'Times New Roman'")
+    expect(html).toContain("font-family:'Times New Roman', serif;")
+    expect(html).not.toContain('@font-face')
   })
 
   it('A5 ngang, A6 đứng', () => {
@@ -44,32 +41,27 @@ describe('renderHtml', () => {
     expect(count(html, /<section class="card">/g)).toBe(1)
   })
 
-  it('escape chữ người dùng nhập và nhúng font', () => {
+  it('escape chữ người dùng nhập', () => {
     const s = agentSettings()
     s.header.name.value = '<b>A</b>'
     const { layout } = buildSheet(s, day26, { date: D26, paper: 'A6', blank: true })
-    const html = renderHtml(layout, { fontCss: '@font-face{font-family:Tinos}' })
+    const html = renderHtml(layout)
     expect(html).toContain('&lt;b&gt;A&lt;/b&gt;')
-    expect(html).toContain('@font-face{font-family:Tinos}')
     expect(html).not.toContain('472899')
   })
 })
 
-describe('loadFontCss', () => {
-  it('nhúng subset latin, latin-ext, vietnamese dạng data URI', () => {
-    const dir = dirname(require.resolve('@fontsource/tinos/package.json'))
-    const css = loadFontCss('Times New Roman', dir)
-    expect(count(css, /@font-face/g)).toBe(3)
-    expect(count(css, /data:font\/woff2;base64,/g)).toBe(3)
-    expect(css).toContain("font-family:'Tinos'")
-    expect(css).toContain('font-weight:700')
-    expect(css).toContain('U+1EA0-1EF9') // dải chữ Việt
-    expect(css).not.toContain('./files/')
+describe('fontFamilyCss', () => {
+  it('tên font máy trong nháy, thêm họ font dự phòng theo kiểu chữ', () => {
+    expect(fontFamilyCss('Times New Roman')).toBe("'Times New Roman', serif")
+    expect(fontFamilyCss('Arial')).toBe("'Arial', sans-serif")
+    expect(fontFamilyCss('Segoe UI')).toBe("'Segoe UI', sans-serif")
+    expect(fontFamilyCss('Noto Sans Mono')).toBe("'Noto Sans Mono', monospace")
+    expect(fontFamilyCss('Georgia')).toBe("'Georgia', serif")
   })
 
-  it('Arial → Arimo', () => {
-    const dir = dirname(require.resolve('@fontsource/arimo/package.json'))
-    expect(loadFontCss('Arial', dir)).toContain("font-family:'Arimo'")
+  it('escape dấu nháy trong tên font', () => {
+    expect(fontFamilyCss("Bob's Font")).toBe("'Bob\\'s Font', serif")
   })
 })
 

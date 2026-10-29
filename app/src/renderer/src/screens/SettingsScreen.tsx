@@ -4,20 +4,21 @@ import { PAPER_SPECS, TWIPS_PER_CM, viNumber } from '../../../core/layout'
 import type { DayResult } from '../../../core/parse'
 import { renderHtml } from '../../../core/render-html'
 import {
-  defaultSettings, FONTS, type CellStyle, type FontName, type HeaderKey, type HeaderText, type OutputFormat, type Paper, type Settings
+  DEFAULT_FONT, defaultSettings, type CellStyle, type HeaderKey, type HeaderText, type OutputFormat, type Paper, type Settings
 } from '../../../core/settings'
 import { buildSheet } from '../../../core/sheet'
 import { STATIONS } from '../../../core/stations'
 import { APP_NAME } from '../../../shared/brand'
 import { api } from '../api'
-import { NumberStepper, Segmented } from '../components/controls'
+import { Segmented } from '../components/controls'
 import { PagePositionPicker } from '../components/PagePositionPicker'
 import { PrinterSelect } from '../components/PrinterSelect'
 import { SheetPreview } from '../components/SheetPreview'
 import { AlignGrid, alignName } from '../components/AlignGrid'
 import { CompactInput } from '../components/CompactInput'
 import { StationPicker } from '../components/StationPicker'
-import { useFontCss, usePrinters } from '../hooks'
+import { measureFontScale } from '../fonts'
+import { useLocalFonts, usePrinters } from '../hooks'
 import { SAMPLE_DATE, SAMPLE_DAY } from '../sample'
 
 type FieldKind = 'text' | 'phones' | 'auto'
@@ -170,17 +171,17 @@ export function SettingsScreen(props: SettingsScreenProps) {
   const { draft, setDraft, replaceDraft, dirty, saving, onSave, lastResult, version } = props
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const cards = useCollapsed()
-  const fontCss = useFontCss(draft.print.font)
+  const localFonts = useLocalFonts()
   const { printers, loading: findingPrinters, refresh: refreshPrinters } = usePrinters()
 
   // ------------------------------------------------------------ xem trước một phiếu
   const day = lastResult ?? SAMPLE_DAY
   const date = (lastResult && parseDate(lastResult.date)) || SAMPLE_DATE
   const sheet = useMemo(
-    () => buildSheet(draft, day, { date, paper: draft.print.paper, blank: false }),
+    () => buildSheet(draft, day, { date, paper: draft.print.paper, blank: false, fontScale: measureFontScale(draft.print.font) }),
     [draft, day, date.y, date.m, date.d] // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const html = useMemo(() => renderHtml(sheet.layout, { fontCss, mode: 'card' }), [sheet, fontCss])
+  const html = useMemo(() => renderHtml(sheet.layout, { mode: 'card' }), [sheet])
   const l = sheet.layout
   const numberPt = viNumber(l.table.numberSize / 2)
 
@@ -234,8 +235,10 @@ export function SettingsScreen(props: SettingsScreenProps) {
     return Math.round((Math.trunc((s.h - 908 - (s.nrow - 1) * gap) / s.nrow) / TWIPS_PER_CM) * 10) / 10
   }
 
-  const fontOptions = [null, 12, 13, 14]
-  if (draft.print.numberFontPt !== null && !fontOptions.includes(draft.print.numberFontPt)) fontOptions.push(draft.print.numberFontPt)
+  // Font đã cài trên máy; chưa đọc được danh sách thì đưa vài font phổ biến để vẫn chọn được
+  const fontMissing = !!localFonts?.length && !localFonts.includes(draft.print.font)
+  const fontChoices = localFonts?.length ? localFonts : [DEFAULT_FONT, 'Arial']
+  const fontList = fontChoices.includes(draft.print.font) ? fontChoices : [draft.print.font, ...fontChoices]
 
   return (
     <div className="settings">
@@ -317,15 +320,9 @@ export function SettingsScreen(props: SettingsScreenProps) {
                   </div>
                   <div className="agent-size">
                     <span className="field-label muted">Cỡ chữ</span>
-                    <NumberStepper
-                      label={`cỡ chữ ${f.label}`}
-                      value={h.size}
-                      min={5}
-                      max={30}
-                      step={0.5}
-                      unit="pt"
-                      onChange={(v) => setHeader(f.key, { size: v })}
-                    />
+                    <CompactInput id={`${id}-size`} kind="size" label={`cỡ chữ ${f.label}`} unit="pt"
+                      title={`Cỡ chữ dòng ${f.label}`} value={h.size} min={5} max={30} step={0.5}
+                      onChange={(v) => setHeader(f.key, { size: v ?? h.size })} />
                   </div>
                 </div>
               )
@@ -437,34 +434,34 @@ export function SettingsScreen(props: SettingsScreenProps) {
                   className="input grow"
                   aria-label="Font chữ trên phiếu"
                   value={draft.print.font}
-                  onChange={(e) => setDraft((d) => { d.print.font = e.target.value as FontName })}
+                  onChange={(e) => setDraft((d) => { d.print.font = e.target.value })}
                 >
-                  {FONTS.map((f) => <option key={f} value={f}>{f}</option>)}
-                </select>
-                <select
-                  id="f-nsize"
-                  className="input size-select"
-                  aria-label="Cỡ số kết quả"
-                  value={String(draft.print.numberFontPt ?? 0)}
-                  onChange={(e) => setDraft((d) => { d.print.numberFontPt = Number(e.target.value) || null })}
-                >
-                  {fontOptions.map((pt) => (
-                    <option key={pt ?? 0} value={String(pt ?? 0)}>{pt === null ? 'Tự động' : `${viNumber(pt)} pt`}</option>
+                  {fontList.map((f) => (
+                    <option key={f} value={f}>{f === draft.print.font && fontMissing ? `${f} (máy chưa cài)` : f}</option>
                   ))}
                 </select>
+                <CompactInput id="f-nsize" kind="size" label="cỡ số kết quả" unit="pt"
+                  title="Cỡ số kết quả. Để trống hoặc gõ auto: lớn nhất vừa phiếu"
+                  value={draft.print.numberFontPt} min={8} max={30} step={0.5} allowAuto autoValue={l.table.numberSize / 2}
+                  onChange={(v) => setDraft((d) => { d.print.numberFontPt = v })} />
               </div>
-              <span className="hint">
-                Font dùng cho cả phiếu. Cỡ số kết quả{' '}
+              <span className={fontMissing ? 'hint warn' : 'hint'}>
+                {fontMissing
+                  ? `Máy này chưa cài font “${draft.print.font}”, phiếu sẽ in bằng font thay thế.`
+                  : 'Font lấy từ các font đã cài trên máy, dùng cho cả phiếu.'}{' '}
                 {draft.print.numberFontPt === null
-                  ? `tự động lấy lớn nhất vừa phiếu, hiện là ${numberPt} pt.`
-                  : `chọn tay ${viNumber(draft.print.numberFontPt)} pt; to quá thì tự hạ cho vừa.`}
+                  ? `Cỡ số Auto là lớn nhất vừa phiếu, hiện là ${numberPt} pt.`
+                  : l.table.numberSize / 2 < draft.print.numberFontPt
+                    ? `Cỡ ${viNumber(draft.print.numberFontPt)} pt to quá, đang dùng ${numberPt} pt cho vừa phiếu.`
+                    : `Cỡ số cố định ${numberPt} pt.`}{' '}
+                Nhấp đúp chữ “Cỡ”, xoá số hoặc gõ “auto” để về Auto.
               </span>
             </div>
           </div>
           <div className="cell-styles" role="group" aria-labelledby="l-cells">
             <span id="l-cells" className="field-label">Chữ trong bảng</span>
             <div className="cell-styles-grid">
-              <span />
+              <span className="cell-col-blank" />
               <span className="cell-col-head">Padding</span>
               <span className="cell-col-head">Align</span>
               {CELL_ROWS.map((r) => {
@@ -516,8 +513,9 @@ export function SettingsScreen(props: SettingsScreenProps) {
           <div className="grid-2 wide">
             <div className="field">
               <label htmlFor="f-copies" className="field-label">Số bản in mặc định</label>
-              <NumberStepper id="f-copies" label="số bản in mặc định" value={draft.printer.copies} min={1} max={99}
-                onChange={(v) => setDraft((d) => { d.printer.copies = v })} />
+              <CompactInput id="f-copies" kind="copies" label="số bản in mặc định" title="Số tờ in mỗi lần bấm In"
+                unit="tờ" value={draft.printer.copies} min={1} max={99} step={1}
+                onChange={(v) => setDraft((d) => { d.printer.copies = v ?? d.printer.copies })} />
               <span className="hint">Mỗi bản là một tờ giấy.</span>
             </div>
             <div className="field">
@@ -555,7 +553,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
 
       <aside className="settings-side" aria-labelledby="h-xt">
         <h2 id="h-xt">Xem trước phiếu</h2>
-        <SheetPreview html={html} width={l.cardW / 15} height={l.cardH / 15} label="Xem trước một phiếu" />
+        <SheetPreview html={html} width={l.cardW / 15} height={l.cardH / 15} label="Xem trước một phiếu" pad={16} />
         <p className="hint">
           Cỡ số kết quả hiện tại: {numberPt} pt{draft.print.numberFontPt === null ? ' (tự chỉnh để vừa phiếu)' : ''}.
           {' '}Khổ {draft.print.paper}, phiếu {viNumber(l.cardW / TWIPS_PER_CM)} × {viNumber(l.cardH / TWIPS_PER_CM)} cm.

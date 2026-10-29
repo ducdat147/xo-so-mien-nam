@@ -41,7 +41,10 @@ nhập/xuất cấu hình bằng file `.conf` (KEY=VALUE), nhận cả khoá ki�
 - PDF bằng `webContents.printToPDF` từ HTML; Word bằng tự sinh OOXML + jszip.
   **Không** dùng LibreOffice, **không** gọi bash.
 - Một layout engine (`core/layout`) tính bằng twips, dùng chung cho HTML và DOCX.
-- Font phiếu: Tinos/Arimo (trùng số đo Times New Roman/Arial) nhúng vào PDF.
+- Font phiếu: **chỉ dùng font đã cài trên máy** (chốt 29-10-2026, bỏ Tinos/Arimo nhúng sẵn).
+  Danh sách lấy bằng `queryLocalFonts`, mặc định Times New Roman. PDF nhúng font máy khi xuất;
+  máy khác thiếu font thì in bằng font thay thế. Layout tính theo Times; font rộng hơn thì
+  renderer đo tỉ lệ (`FontScale`) gửi kèm yêu cầu để main tính cùng một layout.
 - Thông tin đại lý mặc định để trống. Ngày mở sẵn: trước 16h (giờ VN) là hôm qua.
 - Mặc định: PDF, khổ A4, phiếu rộng 8 cm, cách nhau 0,6 cm, cụm phiếu căn trái, chữ
   trong bảng căn giữa, số căn phải cách lề ô 0,3 cm, cỡ số tự động, toàn màu đen.

@@ -31,14 +31,24 @@ const PadY = () => (
   </svg>
 )
 
-/** Phần đầu ô: biểu tượng khoảng cách / padding, hoặc chữ ngắn "Rộng" / "Cao". */
+/** Hai tờ giấy chồng nhau: số bản (tờ) in. */
+const Copies = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+    <path d="M8 7V4.5A1.5 1.5 0 0 1 9.5 3h9A1.5 1.5 0 0 1 20 4.5v11a1.5 1.5 0 0 1-1.5 1.5H16" />
+    <rect x="4" y="7" width="12" height="14" rx="1.5" />
+  </svg>
+)
+
+/** Phần đầu ô: biểu tượng (khoảng cách, padding, số bản) hoặc chữ ngắn "Rộng" / "Cao" / "Cỡ". */
 const PREFIX = {
   'gap-x': { node: <GapX />, axis: 'x' },
   'gap-y': { node: <GapY />, axis: 'y' },
   'pad-x': { node: <PadX />, axis: 'x' },
   'pad-y': { node: <PadY />, axis: 'y' },
   width: { node: 'Rộng', axis: 'x' },
-  height: { node: 'Cao', axis: 'y' }
+  height: { node: 'Cao', axis: 'y' },
+  size: { node: 'Cỡ', axis: 'x' },
+  copies: { node: <Copies />, axis: 'x' }
 } as const
 
 /** Chữ hiện ở chỗ con số khi đang tự động. */
@@ -46,7 +56,8 @@ const AUTO_TEXT = 'Auto'
 const isAutoText = (t: string) => ['', 'auto', 'a', 'tự động', 'tu dong'].includes(t.trim().toLowerCase())
 
 /**
- * Ô nhập số gọn kiểu Figma: biểu tượng (hoặc chữ ngắn) + số + đơn vị.
+ * Ô nhập số gọn kiểu Figma, cao 36px (chuẩn chung của các ô nhập): biểu tượng (hoặc chữ ngắn) + số + đơn vị.
+ * Dùng cho mọi ô số trong app, thay cho ô có nút − / +.
  * Gõ số (chấp nhận dấu phẩy), ↑/↓ để tăng giảm (Shift: ×10), kéo chuột trên phần đầu ô để chỉnh nhanh.
  * `allowAuto`: giá trị null hiện chữ "Auto" thay cho số; để trống hoặc gõ "auto" là về tự động;
  * đang Auto mà bấm ↑/↓ hay kéo chuột thì bắt đầu từ `autoValue` (kích thước đang dùng thật).

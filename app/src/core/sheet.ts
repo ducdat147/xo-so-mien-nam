@@ -3,7 +3,7 @@
 
 import type { DateVN } from './dates'
 import { formatDate, sheetTitle, weekday } from './dates'
-import { computeLayout, type SheetLayout } from './layout'
+import { computeLayout, type FontScale, type SheetLayout } from './layout'
 import type { DayResult } from './parse'
 import { selectStations, type SheetStation } from './select'
 import type { Paper, Settings } from './settings'
@@ -13,6 +13,8 @@ export interface SheetRequest {
   paper: Paper
   /** In phiếu trống (chưa có số). */
   blank: boolean
+  /** Bề rộng font in so với Times (renderer đo rồi gửi kèm để main tính cùng layout). */
+  fontScale?: FontScale
 }
 
 export interface Sheet {
@@ -35,7 +37,8 @@ export function buildSheet(settings: Settings, day: DayResult | null, req: Sheet
     paper: req.paper,
     title: sheetTitle(req.date),
     stations: stations.map((s) => ({ short: s.short, prizes: s.prizes })),
-    blank: req.blank
+    blank: req.blank,
+    fontScale: req.fontScale
   })
   return { layout, stations }
 }

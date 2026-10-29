@@ -5,7 +5,7 @@
 
 import { WEEKDAY_SHORT } from './dates'
 import {
-  ALIGNS, FORMATS, normalizeColor, normalizeSettings, PAPERS, toNumber, VALIGNS, defaultSettings,
+  ALIGNS, FORMATS, normalizeColor, normalizeFontName, normalizeSettings, PAPERS, toNumber, VALIGNS, defaultSettings,
   type Align, type CellStyle, type Colors, type OutputFormat, type Paper, type Settings, type VAlign
 } from './settings'
 import { findStation, scheduleFor, STATIONS } from './stations'
@@ -181,7 +181,7 @@ export function importConf(text: string, base: Settings = defaultSettings()): Co
       case 'CARD_ALIGN': setAlign(key, v, (a) => { s.print.cardAlign = a }); break
       case 'NUMBER_FONT_PT': setNumAuto(key, v, 6, 30, (n) => { s.print.numberFontPt = n }); break
       case 'FONT':
-        s.print.font = /arial/i.test(v) ? 'Arial' : 'Times New Roman'
+        s.print.font = normalizeFontName(v, s.print.font)
         ok()
         break
       case 'TEXT_PAD_X_CM': setNum(key, v, 0, 2, (n) => { s.print.textCell.padXCm = n }); break
@@ -286,7 +286,7 @@ export function exportConf(settings: Settings, meta: { appName: string; version:
     `CARD_GAP_Y_CM=${num(p.cardGapYCm)}`,
     '# Vị trí cụm phiếu trên trang: left | center | right',
     `CARD_ALIGN=${p.cardAlign}`,
-    '# Font: Times New Roman | Arial. Cỡ số kết quả (pt): auto = lớn nhất vừa phiếu',
+    '# Font: tên font đã cài trên máy, ví dụ Times New Roman, Arial. Cỡ số kết quả (pt): auto = lớn nhất vừa phiếu',
     `FONT=${q(p.font)}`,
     `NUMBER_FONT_PT=${auto(p.numberFontPt)}`,
     '# Chữ trong bảng (Giải, tên giải, tên đài) và số kết quả: padding (cm) + căn',

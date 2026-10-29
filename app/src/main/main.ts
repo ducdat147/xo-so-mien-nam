@@ -5,17 +5,17 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
 import { formatDate, isValidDate, type DateVN } from '../core/dates'
-import { loadFontCss } from '../core/fonts'
 import { renderHtml } from '../core/render-html'
 import { exportConf, importConf } from '../core/conf'
-import { FONTS, FORMATS, normalizeSettings, PAPERS, type FontName, type Settings } from '../core/settings'
+import { FORMATS, normalizeSettings, PAPERS, type Settings } from '../core/settings'
 import { readSettingsFile, writeSettingsFile } from '../core/settings-file'
+import type { FontScale } from '../core/layout'
 import { buildSheet, type SheetRequest } from '../core/sheet'
 import { loadResults, type LoadedResult } from '../core/source'
 import { IPC, type ExportRequest, type InitialData, type PrintRequest, type PrintResult, type SettingsPatch } from '../shared/api'
 import { exportSheet } from './export'
 import { httpFetch } from './http'
-import { cacheDir, fontPackageDir, resolveOutputDir, settingsFile } from './paths'
+import { cacheDir, resolveOutputDir, settingsFile } from './paths'
 import { listPrinters, printSheet } from './print'
 import { showSplash } from './splash'
 import { APP_NAME } from '../shared/brand'
@@ -32,18 +32,8 @@ let mainWindow: BrowserWindow | null = null
 let settings: Settings
 /** Kết quả đã tải theo ngày (DD-MM-YYYY): xuất file dùng đúng dữ liệu đang hiện trên màn hình. */
 const results = new Map<string, LoadedResult>()
-const fontCssCache = new Map<FontName, string>()
 /** Chỉ cho mở những file app vừa ghi ra. */
 const exportedFiles = new Set<string>()
-
-function fontCss(font: FontName): string {
-  let css = fontCssCache.get(font)
-  if (css === undefined) {
-    css = loadFontCss(font, fontPackageDir(font))
-    fontCssCache.set(font, css)
-  }
-  return css
-}
 
 // ---------------------------------------------------------------- kiểm tra tham số IPC
 
@@ -53,10 +43,17 @@ function checkDate(v: unknown): DateVN {
   return { y: d.y, m: d.m, d: d.d }
 }
 
+/** Tỉ lệ font renderer đo được; sai kiểu thì bỏ (layout tính như Times). */
+function checkFontScale(v: unknown): FontScale | undefined {
+  const f = v as FontScale | undefined
+  const ok = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && n > 0 && n < 10
+  return f && ok(f.digits) && ok(f.text) ? { digits: f.digits, text: f.text } : undefined
+}
+
 function checkSheet(v: unknown): SheetRequest {
   const r = (v ?? {}) as SheetRequest
   if (!PAPERS.includes(r.paper)) throw new Error('Khổ giấy không hợp lệ')
-  return { date: checkDate(r.date), paper: r.paper, blank: !!r.blank }
+  return { date: checkDate(r.date), paper: r.paper, blank: !!r.blank, fontScale: checkFontScale(r.fontScale) }
 }
 
 const dayFor = (req: SheetRequest) => results.get(formatDate(req.date)) ?? null
@@ -76,12 +73,10 @@ function registerIpc(): void {
     return r
   })
 
-  ipcMain.handle(IPC.fontCss, (_e, font: unknown) => fontCss(FONTS.includes(font as FontName) ? (font as FontName) : 'Times New Roman'))
-
   ipcMain.handle(IPC.exportSheet, async (_e, raw: unknown) => {
     const req: ExportRequest = { ...checkSheet(raw), format: (raw as ExportRequest).format }
     if (!FORMATS.includes(req.format)) throw new Error('Định dạng không hợp lệ')
-    const r = await exportSheet(settings, dayFor(req), req, fontCss)
+    const r = await exportSheet(settings, dayFor(req), req)
     r.files.forEach((f) => exportedFiles.add(f))
     return r
   })
@@ -101,7 +96,7 @@ function registerIpc(): void {
     }
     const { layout } = buildSheet(settings, dayFor(req), req)
     try {
-      const out = await printSheet(renderHtml(layout, { fontCss: fontCss(layout.font) }), {
+      const out = await printSheet(renderHtml(layout), {
         paper: req.paper,
         copies,
         deviceName: deviceName ?? undefined,

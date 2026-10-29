@@ -35,7 +35,7 @@ Không cần cài thêm gì (không bash, không LibreOffice). Giao diện tiế
 | Giao diện | **React** | màn Cài đặt nhiều trạng thái (kéo thả, xem trước sống) |
 | Parse HTML | **cheerio** | chạy được ở main process, dễ test bằng fixture |
 | Tạo .docx | tự sinh OOXML + **jszip** | port thẳng từ `build_docx` của bản bash, đã kiểm chứng |
-| Font trên phiếu | **@fontsource/tinos** (thay Times New Roman), **@fontsource/arimo** (thay Arial) | cùng số đo chữ với Times/Arial ⇒ PDF giống bản Word; có tiếng Việt |
+| Font trên phiếu | **font đã cài trên máy** (`queryLocalFonts`), mặc định Times New Roman | không nhúng sẵn; PDF nhúng font máy khi xuất, bản Word ghi tên font |
 | Font giao diện | **@fontsource/be-vietnam-pro** | |
 | Test | **vitest** | |
 | Đóng gói | **electron-builder** + GitHub Actions | |
@@ -199,7 +199,7 @@ mặc định của nhãn, địa chỉ, DĐ là **10 pt** (chủ dự án chỉ
     "textCell":   { "padXCm": 0.05, "padYCm": 0.05, "alignX": "center", "alignY": "top" },
     "numberCell": { "padXCm": 0.3,  "padYCm": 0.05, "alignX": "right",  "alignY": "center" },
     "numberFontPt": null,                     // null = tự chọn cỡ lớn nhất vừa phiếu
-    "font": "Times New Roman",                // hoặc "Arial"
+    "font": "Times New Roman",                // tên họ font bất kỳ đã cài trên máy
     "colors": { "text": "000000", "accent": "000000", "border": "000000", "number": "000000" }
   },
   "output": { "dir": "~/Documents/XSMN" },
@@ -329,9 +329,16 @@ tràn trang. `numberFontPt` lớn quá → hạ xuống cỡ lớn nhất vừa 
 
 ### 6.5 Màu & font
 
-Mặc định toàn bộ **màu đen**. Font: Times New Roman (Word) ⇄ Tinos (PDF/xem trước);
-Arial ⇄ Arimo. Nhúng font vào HTML in bằng `@font-face` data URI (các subset latin,
-latin-ext, vietnamese của @fontsource) để PDF tự chứa font.
+Mặc định toàn bộ **màu đen**. Font phiếu là font đã cài trên máy, cùng một tên cho HTML
+(`'<tên>', serif|sans-serif|monospace`, họ dự phòng đoán theo tên) và Word (`w:rFonts`).
+`printToPDF` nhúng font máy vào PDF. Máy không có font đó thì trình duyệt / Word dùng font thay
+thế; màn Cài đặt ghi "(máy chưa cài)" và cảnh báo.
+
+Số đo §6.4 tính theo Times New Roman đậm (chữ số 0,5 em). Renderer đo font đang chọn bằng canvas
+(chữ số 0–9 và một câu mẫu đầu phiếu, chữ đậm), chia cho số đo của Times ra `FontScale`
+{digits, text} rồi gửi kèm yêu cầu xem trước / in / lưu. Layout nhân bề rộng chữ số
+(`30 → ceil(30 × digits)` twips mỗi half-point) và bề rộng chữ đầu phiếu với tỉ lệ này, kẹp trong
+[1, 2]: font hẹp hơn Times vẫn tính như Times nên mặc định ra đúng bản bash.
 
 ---
 
@@ -341,7 +348,7 @@ Bản thiết kế đã duyệt: `design/` (định dạng `.dc.html` của canv
 HTML + JS: phần markup là bố cục, khối `<script>` là dữ liệu mẫu và hành vi). Màu
 giao diện: nền `#F3F4F6`, thẻ trắng viền `#DDE0E6` bo 12px, chữ `#16181D`, chữ phụ
 `#5B6270`, nút chính đen `#16181D`, màu nhấn `#C2410C` (nút In, nút Lưu cài đặt).
-Font Be Vietnam Pro. Cửa sổ mặc định 1280×860, tối thiểu ~900×640. Màn chính luôn là
+Font Be Vietnam Pro. Cửa sổ mặc định 1280×860, tối thiểu 900×640. Màn chính luôn là
 **Kết quả**; không có tab. Góc phải thanh trên: "Nguồn: minhngoc.net.vn" và **nút bánh
 răng** mở màn **Cài đặt** (chủ dự án đổi 28-10-2026, khác bản thiết kế). Đang ở Cài đặt
 thì nút bánh răng ở trạng thái bật, kèm nút "Quay lại Kết quả" ở thanh trên.
@@ -361,7 +368,7 @@ Cột trái (≈320px):
 - **Thẻ trạng thái** theo §3 (ok / đang quay / chưa có / lỗi) + "Tự lấy lại mỗi 2 phút".
 - Nhóm **In phiếu** (thẻ riêng, chủ dự án yêu cầu 28-10-2026): **Máy in** ("Hộp thoại in của
   hệ thống" hoặc một máy in đã cài, nút tìm lại; chọn ở đây được lưu ngay vào
-  `printer.deviceName`), **Số bản in** tính theo **tờ**, tối thiểu 1 (− [1–99] +, kèm dòng
+  `printer.deviceName`), **Số bản in** tính theo **tờ**, tối thiểu 1 (ô gọn [biểu tượng hai tờ | 1–99 | tờ], kèm dòng
   "2 tờ A4 = 8 phiếu"; mặc định `printer.copies`), ô **"In nhanh, bỏ qua bước xem trước"**
   (`printer.silent`, chỉ bật được khi đã chọn máy in), nút màu nhấn **Xem trước và in…**
   (In nhanh thì thành **In ngay N tờ**).
@@ -397,7 +404,7 @@ kèm dòng "Cỡ số kết quả hiện tại: 13,5 pt (tự chỉnh để vừ
 1. **Thông tin đại lý** — mỗi dòng của §5 `header` là một hàng:
    nút **con mắt** (mở = hiện, gạch chéo = ẩn; `aria-pressed`, tooltip
    "Đang hiện – bấm để ẩn") · nhãn + ô nhập (dòng ẩn có nhãn "Đang ẩn") ·
-   **Cỡ chữ** (− [ô số, bước 0,5, 5–30] + "pt"). Số điện thoại: danh sách ô + nút xoá,
+   **Cỡ chữ** (ô gọn ["Cỡ" | số, bước 0,5, 5–30 | "pt"]). Số điện thoại: danh sách ô + nút xoá,
    "+ Thêm số". "Dòng thứ, ngày" không nhập được (tự động). Không có dòng Fax, ghi chú dưới "Tư".
 2. **Đài cần in** — radio "Tất cả đài quay trong ngày" | "Chọn đài theo thứ".
    Mỗi thứ một hàng; các đài là thẻ ngang theo thứ tự cột trên phiếu (số 1, 2, 3…),
@@ -413,7 +420,10 @@ kèm dòng "Cỡ số kết quả hiện tại: 13,5 pt (tự chỉnh để vừ
    trên phần đầu ô để chỉnh nhanh;
    **vị trí cụm phiếu trên trang** (ba hình trang giấy nhỏ Trái / Giữa / Phải, vẽ theo khổ giấy
    mặc định: A4 2×2, A5 ngang 2 phiếu, A6 1 phiếu; phím mũi tên để đổi), **Font chữ & cỡ số**
-   (một hàng: chọn font + chọn cỡ số "Tự động" / 12 / 13 / 14 pt, gợi ý ghi cỡ số đang dùng); mục
+   (một hàng: chọn font trong danh sách font đã cài trên máy + ô gọn **Cỡ** (pt, bước 0,5, 8–30)
+   hoạt động như ô Rộng / Cao: Auto = lớn nhất vừa phiếu, nhấp đúp chữ "Cỡ", xoá số hoặc gõ "auto" để
+   về Auto, đang Auto bấm ↑/↓ hay kéo thì bắt đầu từ cỡ đang dùng; gợi ý ghi cỡ số đang dùng, cỡ đặt
+   to quá thì ghi cỡ đã hạ; font đã lưu mà máy không có thì ghi "(máy chưa cài)" và cảnh báo); mục
    **Chữ trong bảng**: hai dòng **Chữ** (Giải, tên giải, tên đài) và **Số kết quả**, mỗi dòng có
    Padding (hai ô gọn ngang / dọc, cm, bước 0,05) và **Align** (ô 3×3 chọn 1 trong 9 vị trí, kiểu
    Figma, dùng được phím mũi tên).
@@ -425,7 +435,15 @@ kèm dòng "Cỡ số kết quả hiện tại: 13,5 pt (tự chỉnh để vừ
    thông báo (co giãn, tự xuống dòng); phải luôn là "Khôi phục mặc định" · **Lưu cài đặt**
    (báo "Đã lưu cài đặt"). Rời màn khi chưa lưu → hỏi.
 
-Yêu cầu chung: nút/ô ≥ 44px, có `label`, `aria-*` đúng, tương phản chữ ≥ 4.5:1.
+Cửa sổ hẹp (≤ 960px, cột trái < ~600px): các cặp mục hai cột trong thẻ xếp thành một cột; "Chữ
+trong bảng" đưa tên dòng lên hàng riêng. Không có thanh cuộn ngang ở cỡ tối thiểu 900×640.
+
+Yêu cầu chung: có `label`, `aria-*` đúng, tương phản chữ ≥ 4.5:1. **Ô nhập / ô chọn cao 36px**
+(chủ dự án chốt 29-10-2026, lấy theo ô số gọn); nút đứng cạnh ô nhập (Chọn…, xoá số, tìm lại máy
+in) cao bằng ô; các nút khác ≥ 44px. **Mọi ô số** dùng chung một kiểu ô gọn (`CompactInput`):
+[biểu tượng hoặc chữ ngắn | số | đơn vị]; gõ số (nhận dấu phẩy), ↑/↓ (Shift ×10), kéo chuột trên
+phần đầu ô; tuỳ chọn **Auto** (nhấp đúp phần đầu ô, xoá số hoặc gõ "auto"; khi Auto ẩn đơn vị).
+Không còn ô số có nút − / +.
 
 ---
 
@@ -445,7 +463,7 @@ Port `build_docx` của bản bash sang `render-docx.ts`, đọc từ layout. Gh
   cùng cột chèn đoạn trống cao exact = gap, sang cột mới bằng `w:br w:type="column"`
   ở đoạn đầu của bản, cuối tài liệu một đoạn rất thấp (line exact 20).
 - Hàng bảng `w:trHeight hRule="exact"`, `w:cantSplit`.
-- Font chạy: `Times New Roman` / `Arial` (tên thật, không phải Tinos/Arimo).
+- Font chạy: tên font đang chọn (font máy), ví dụ `Times New Roman`.
 
 ### 8.3 In (module riêng `main/print.ts`)
 ```ts

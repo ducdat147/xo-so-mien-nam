@@ -28,18 +28,30 @@ Mỗi lần phát hành, thêm một mục mới lên trên cùng.
 - **Khoảng cách giữa các phiếu** tách thành ngang (giữa 2 cột) và dọc (giữa 2 hàng). Cài đặt cũ
   và `CARD_GAP_CM` trong xsmn.conf áp cho cả hai chiều.
 - Các ô số trên nhập gọn kiểu Figma: gõ số, phím mũi tên, hoặc kéo chuột trên phần đầu ô.
+- Mọi ô số trong app (cỡ chữ đầu phiếu, số bản in ở màn Kết quả, bước xem trước khi in và Cài
+  đặt) dùng chung kiểu ô gọn này: biểu tượng hoặc chữ ngắn, số, đơn vị; bỏ các nút − / +.
+- Ô nhập và ô chọn cao 36px, bằng ô số gọn; nút đứng cạnh ô nhập cao bằng ô.
+- Cửa sổ hẹp thì các mục của thẻ Bản in, Máy in xếp một cột, không còn thanh cuộn ngang ở màn
+  Cài đặt. Thanh phóng to ở khung xem trước không còn che đầu
+  phiếu: trang tự chừa chỗ phía trên khi lấn tới thanh.
 - Mục **Chữ trong bảng** thay cho "Căn chữ trong bảng", "Căn số kết quả", "Khoảng cách số tới lề
   phải ô": hai dòng Chữ và Số kết quả, mỗi dòng có Padding ngang/dọc và ô Align 3×3 (chọn 1 trong 9
   vị trí). Cài đặt cũ tự chuyển sang; mặc định bản in không đổi.
 - **Vị trí cụm phiếu trên trang** chọn bằng ba hình trang giấy nhỏ (Trái / Giữa / Phải) vẽ đúng khổ
   giấy, thay cho ô chọn chữ.
-- Font chữ và cỡ số kết quả gộp thành một mục **Font chữ & cỡ số** (một hàng hai ô chọn).
+- Font chữ và cỡ số kết quả gộp thành một mục **Font chữ & cỡ số**. Cỡ số nhập bằng ô gọn **Cỡ**
+  giống ô Rộng / Cao: Auto là lớn nhất vừa phiếu, gõ số (bước 0,5 pt) để cố định, nhấp đúp chữ
+  "Cỡ" để về Auto.
 - Nhóm **Cấu hình** (nhập / xuất file .conf) ở thanh dưới màn Cài đặt: xuất thông tin đại lý, đài
   và bố cục bản in ra file chữ có chú thích, nhập lại ra y nguyên (sao lưu hoặc chép sang máy khác).
   Máy in và thư mục lưu không nằm trong file (riêng từng máy). File `xsmn.conf` của bản dòng lệnh
   cũ vẫn nhập được.
 - Các thẻ ở màn Cài đặt thu gọn / mở rộng được (nhớ cho lần mở sau), có nút thu gọn / mở rộng tất cả.
 - Lịch chọn ngày chỉ cho chọn tới hôm nay.
+- Font phiếu chọn từ **các font đã cài trên máy** thay cho hai font nhúng sẵn (Tinos/Arimo). PDF
+  nhúng font máy khi lưu. Font rộng (Verdana, Tahoma…) thì cỡ số tự hạ cho vừa ô. Font đã lưu mà
+  máy không có thì màn Cài đặt cảnh báo, phiếu in bằng font thay thế. `FONT` trong file .conf nhận
+  tên font bất kỳ.
 - Bỏ bản dòng lệnh bash (`cli/`); app là bản duy nhất.
 - Bỏ dòng **Fax** và **ghi chú dưới chữ "Tư"** khỏi phiếu và màn Cài đặt. Dòng liên hệ chỉ còn các
   số điện thoại (DĐ). Nhập `xsmn.conf` có `AGENT_FAX` / `NOTE` thì hai khoá này được báo bỏ qua.

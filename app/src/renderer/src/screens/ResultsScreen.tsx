@@ -11,8 +11,10 @@ import type { LoadedResult } from '../../../core/source'
 import { fullName, scheduleFor } from '../../../core/stations'
 import type { SettingsPatch } from '../../../shared/api'
 import { api } from '../api'
-import { useFontCss, useOnline, usePrinters } from '../hooks'
-import { NumberStepper, Segmented } from '../components/controls'
+import { measureFontScale } from '../fonts'
+import { useOnline, usePrinters } from '../hooks'
+import { Segmented } from '../components/controls'
+import { CompactInput } from '../components/CompactInput'
 import { PrintDialog } from '../components/PrintDialog'
 import { PrinterSelect } from '../components/PrinterSelect'
 import { Download, Printer, Refresh } from '../components/icons'
@@ -93,7 +95,6 @@ export function ResultsScreen(props: {
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState<Busy>(null)
   const [toast, setToast] = useState<ToastData | null>(null)
-  const fontCss = useFontCss(settings.print.font)
   const { printers, loading: findingPrinters, refresh: refreshPrinters } = usePrinters()
   const deviceName = settings.printer.deviceName
   const silent = settings.printer.silent && !!deviceName
@@ -184,9 +185,13 @@ export function ResultsScreen(props: {
   // ------------------------------------------------------------ phiếu
   const hasNumbers = !!current && (current.status === 'ok' || current.status === 'partial')
   const effectiveBlank = blank || !hasNumbers
-  const sheetReq = useMemo(() => ({ date, paper, blank: effectiveBlank }), [date, paper, effectiveBlank])
+  const font = settings.print.font
+  const sheetReq = useMemo(
+    () => ({ date, paper, blank: effectiveBlank, fontScale: measureFontScale(font) }),
+    [date, paper, effectiveBlank, font]
+  )
   const sheet = useMemo(() => buildSheet(settings, current, sheetReq), [settings, current, sheetReq])
-  const html = useMemo(() => renderHtml(sheet.layout, { fontCss }), [sheet, fontCss])
+  const html = useMemo(() => renderHtml(sheet.layout), [sheet])
   const tableStations = useMemo(
     () => selectStations({ day: current, weekday: weekday(date), stations: settings.stations }),
     [current, date, settings.stations]
@@ -344,7 +349,8 @@ export function ResultsScreen(props: {
                 {copies} tờ {paper} = {copies * perSheet} phiếu
               </span>
             </div>
-            <NumberStepper id="so-ban" label="số bản in" value={copies} onChange={setCopies} min={1} max={99} />
+            <CompactInput id="so-ban" kind="copies" label="số bản in" title="Số tờ in" unit="tờ"
+              value={copies} min={1} max={99} step={1} onChange={(v) => v !== null && setCopies(v)} />
           </div>
           <label className={`check small${deviceName ? '' : ' disabled'}`}>
             <input

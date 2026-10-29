@@ -255,3 +255,23 @@ describe('Chữ / số trong bảng: padding + align', () => {
     expect(l.header.height + l.table.height + SAFETY).toBeLessThanOrEqual(l.cardH)
   })
 })
+
+describe('computeLayout — bề rộng font máy (fontScale)', () => {
+  // địa chỉ vừa đúng 1 dòng khi tính theo Times
+  const long = () => withHeader((h) => { h.addr.value = 'Số 123 đường Lê Lợi, phường 1, thành phố Tân An, Long An' })
+
+  it('Times (1) hoặc hẹp hơn: y như không truyền, giữ đúng số đo bash', () => {
+    const base = computeLayout(input({ settings: long(), n: 4 }))
+    expect(computeLayout({ ...input({ settings: long(), n: 4 }), fontScale: { digits: 1, text: 1 } })).toEqual(base)
+    expect(computeLayout({ ...input({ settings: long(), n: 4 }), fontScale: { digits: 0.9, text: 0.8 } })).toEqual(base)
+  })
+
+  it('font rộng hơn (Verdana đậm ≈ 1,42 / 1,31): số nhỏ lại vừa ô, đầu phiếu tính thêm dòng', () => {
+    const base = computeLayout(input({ settings: long(), n: 4 }))
+    const wide = computeLayout({ ...input({ settings: long(), n: 4 }), fontScale: { digits: 1.42, text: 1.31 } })
+    expect(wide.table.numberSize).toBeLessThan(base.table.numberSize)
+    expect(Math.ceil(30 * 1.42) * wide.table.dbSize).toBeLessThanOrEqual(wide.table.stW - 76 - wide.table.number.indentLeft - wide.table.number.indentRight)
+    const lines = (l: typeof base) => l.header.lines.reduce((n, x) => n + x.lines, 0)
+    expect(lines(wide)).toBeGreaterThan(lines(base))
+  })
+})

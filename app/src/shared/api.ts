@@ -2,7 +2,7 @@
 
 import type { DateVN } from '../core/dates'
 import type { LoadedResult } from '../core/source'
-import type { FontName, OutputFormat, PrinterSettings, Settings } from '../core/settings'
+import type { OutputFormat, PrinterSettings, Settings } from '../core/settings'
 import type { SheetRequest } from '../core/sheet'
 
 export interface InitialData {
@@ -62,8 +62,6 @@ export interface ConfImportResult {
 export interface XsmnApi {
   init(): Promise<InitialData>
   fetchResults(date: DateVN, force: boolean): Promise<LoadedResult>
-  /** @font-face (data URI) của font in, để khung xem trước giống hệt PDF. */
-  fontCss(font: FontName): Promise<string>
   exportSheet(req: ExportRequest): Promise<ExportResult>
   print(req: PrintRequest): Promise<PrintResult>
   /** Mở file vừa xuất bằng ứng dụng mặc định. Trả chuỗi lỗi, rỗng nếu thành công. */
@@ -87,7 +85,6 @@ export interface XsmnApi {
 export const IPC = {
   init: 'xsmn:init',
   fetchResults: 'xsmn:fetch-results',
-  fontCss: 'xsmn:font-css',
   exportSheet: 'xsmn:export-sheet',
   print: 'xsmn:print',
   openFile: 'xsmn:open-file',

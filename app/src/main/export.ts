@@ -5,7 +5,7 @@ import { basename, join } from 'node:path'
 import type { DayResult } from '../core/parse'
 import { renderDocx } from '../core/render-docx'
 import { renderHtml } from '../core/render-html'
-import type { FontName, Settings } from '../core/settings'
+import type { Settings } from '../core/settings'
 import { buildSheet, outputBaseName } from '../core/sheet'
 import { formatDate } from '../core/dates'
 import type { ExportRequest, ExportResult } from '../shared/api'
@@ -25,8 +25,7 @@ function writeError(e: unknown, file: string): string {
 export async function exportSheet(
   settings: Settings,
   day: DayResult | null,
-  req: ExportRequest,
-  fontCss: (font: FontName) => string
+  req: ExportRequest
 ): Promise<ExportResult> {
   const { layout } = buildSheet(settings, day, req)
   const dir = resolveOutputDir(settings.output.dir)
@@ -40,7 +39,7 @@ export async function exportSheet(
   const files: string[] = []
   const jobs: [string, () => Promise<Uint8Array>][] = []
   if (req.format !== 'docx') {
-    jobs.push([`${base}.pdf`, () => htmlToPdf(renderHtml(layout, { fontCss: fontCss(layout.font) }))])
+    jobs.push([`${base}.pdf`, () => htmlToPdf(renderHtml(layout))])
   }
   if (req.format !== 'pdf') {
     jobs.push([`${base}.docx`, () => renderDocx(layout, { title: `Kết quả XSMN ${formatDate(req.date)}` })])

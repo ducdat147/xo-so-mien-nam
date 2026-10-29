@@ -4,19 +4,24 @@
 import type { CellBox, SheetLayout } from './layout'
 import { CELL_MARGIN, DB_LABEL_SIZE, LABEL_AFTER, LABEL_SIZE, SPACER_H } from './layout'
 import { PRIZES } from './stations'
-import type { FontName } from './settings'
 
 export interface HtmlOptions {
-  /** Các luật @font-face cho Tinos/Arimo (data URI) để PDF tự chứa font. */
-  fontCss?: string
   /** sheet = cả trang in; card = một phiếu (xem trước ở màn Cài đặt). */
   mode?: 'sheet' | 'card'
   docTitle?: string
 }
 
-export const FONT_STACK: Readonly<Record<FontName, string>> = {
-  'Times New Roman': "'Tinos', 'Times New Roman', Times, serif",
-  Arial: "'Arimo', Arial, Helvetica, sans-serif"
+/**
+ * font-family cho font máy: tên font (trong nháy đơn) + họ font chung làm dự phòng khi máy
+ * không có font đó. Renderer dùng đúng chuỗi này để đo bề rộng chữ.
+ */
+export function fontFamilyCss(font: string): string {
+  const generic = /mono|courier|consol|menlo/i.test(font)
+    ? 'monospace'
+    : /sans|arial|helvetica|verdana|tahoma|segoe|calibri|roboto|ubuntu|trebuchet/i.test(font)
+      ? 'sans-serif'
+      : 'serif'
+  return `'${font.replace(/['\\]/g, '\\$&')}', ${generic}`
 }
 
 export function htmlEscape(s: string): string {
@@ -102,7 +107,7 @@ padding:${pt(l.margin.top)} ${pt(l.margin.right)} ${pt(l.margin.bottom)} ${pt(l.
   return `${page}
 html,body{margin:0;padding:0;background:#fff}
 @media screen{html,body{overflow:hidden}}
-body{font-family:${FONT_STACK[l.font]};font-weight:700;color:#${c.text};
+body{font-family:${fontFamilyCss(l.font)};font-weight:700;color:#${c.text};
 -webkit-print-color-adjust:exact;print-color-adjust:exact;font-kerning:normal;text-rendering:geometricPrecision}
 p{margin:0}
 .head{text-align:center;white-space:pre-wrap;color:#${c.text}}
@@ -137,8 +142,7 @@ export function renderHtml(l: SheetLayout, opts: HtmlOptions = {}): string {
   const title = htmlEscape(opts.docTitle ?? `Kết quả XSMN ${l.title}`)
   return `<!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><title>${title}</title>
-<style>${opts.fontCss ?? ''}
-${styles(l, mode)}</style></head>
+<style>${styles(l, mode)}</style></head>
 <body>${body}</body></html>
 `
 }

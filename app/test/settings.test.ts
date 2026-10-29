@@ -65,6 +65,15 @@ describe('normalizeSettings', () => {
     expect(s.print.colors.border).toBe('000000')
   })
 
+  it('font: nhận mọi tên font máy, bỏ ký tự phá CSS/HTML, rỗng thì về mặc định', () => {
+    const font = (v: unknown) => normalizeSettings({ print: { font: v } }).print.font
+    expect(font('Segoe UI')).toBe('Segoe UI')
+    expect(font('  Tahoma   Bold ')).toBe('Tahoma Bold')
+    expect(font('A</style><b>{x};"\\')).toBe('A/stylebx')
+    expect(font('')).toBe('Times New Roman')
+    expect(font(42)).toBe('Times New Roman')
+  })
+
   it('danh sách đài theo thứ: bỏ trùng và đài không quay, thêm đài thiếu vào cuối', () => {
     const s = normalizeSettings({
       stations: {
@@ -176,6 +185,14 @@ describe('importConf', () => {
     expect(settings.header.addr.value).toBe('000')
     expect(settings.header.label.value).toBe('')
     expect(settings.print.paper).toBe('A6')
+  })
+
+  it('FONT nhận tên font bất kỳ (font máy), để rỗng thì giữ font đang có', () => {
+    expect(importConf('FONT="Segoe UI"').settings.print.font).toBe('Segoe UI')
+    expect(importConf('FONT=Tahoma').settings.print.font).toBe('Tahoma')
+    const base = defaultSettings()
+    base.print.font = 'Georgia'
+    expect(importConf('FONT=', base).settings.print.font).toBe('Georgia')
   })
 })
 

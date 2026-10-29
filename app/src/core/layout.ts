@@ -2,7 +2,7 @@
 // dùng chung cho render-html (PDF, xem trước, in) và render-docx. Số đo port từ build_docx của
 // bản bash cũ (đã bỏ): giữ nguyên phép chia nguyên của bash để ra đúng từng twip.
 
-import type { Align, CellStyle, Colors, FontName, HeaderSettings, HeaderText, Paper, PrintSettings, VAlign } from './settings'
+import type { Align, CellStyle, Colors, HeaderSettings, HeaderText, Paper, PrintSettings, VAlign } from './settings'
 import { PRIZES, PRIZE_COUNT, PRIZE_LABEL, type PrizeKey, type Prizes } from './stations'
 
 export const TWIPS_PER_CM = 567
@@ -102,6 +102,18 @@ export interface LayoutStation {
   prizes: Prizes
 }
 
+/**
+ * Bề rộng chữ đậm của font in so với Times New Roman (1 = bằng). Số đo gốc của bản bash tính
+ * theo Times; font rộng hơn (Verdana, Tahoma…) thì ước lượng theo tỉ lệ này để số không tràn ô.
+ * Nhỏ hơn 1 vẫn tính như 1. Renderer đo bằng canvas (main không đo được).
+ */
+export interface FontScale {
+  /** Chữ số 0–9. */
+  digits: number
+  /** Chữ thường gặp ở đầu phiếu. */
+  text: number
+}
+
 export interface LayoutInput {
   header: HeaderSettings
   print: PrintSettings
@@ -110,6 +122,7 @@ export interface LayoutInput {
   title: string
   stations: LayoutStation[]
   blank?: boolean
+  fontScale?: FontScale
 }
 
 export interface SheetLayout {
@@ -160,7 +173,7 @@ export interface SheetLayout {
   stations: LayoutStation[]
   title: string
   blank: boolean
-  font: FontName
+  font: string
   colors: Colors
   warnings: string[]
 }
@@ -178,10 +191,13 @@ export function viNumber(n: number, digits = 1): string {
 
 const charCount = (s: string) => [...s.normalize('NFC')].length
 
-/** Ước lượng số dòng: chữ đậm ~0,5 em mỗi ký tự. */
-function estimateLines(runs: Run[], widthTw: number): number {
+/** Tỉ lệ font dùng trong layout: chặn dưới 1 (giữ đúng số đo bash), chặn trên 2. */
+const scaleOf = (v: number | undefined) => (v !== undefined && Number.isFinite(v) ? Math.min(2, Math.max(1, v)) : 1)
+
+/** Ước lượng số dòng: chữ đậm ~0,5 em mỗi ký tự (Times), nhân `scale` cho font rộng hơn. */
+function estimateLines(runs: Run[], widthTw: number, scale: number): number {
   // len × pt × 0,5 (pt) = len × half-point × 5 (twips)
-  const w = runs.reduce((sum, r) => sum + charCount(r.text) * r.size * 5, 0)
+  const w = runs.reduce((sum, r) => sum + charCount(r.text) * r.size * 5, 0) * scale
   return Math.max(1, Math.ceil(w / Math.max(1, widthTw)))
 }
 
@@ -196,7 +212,7 @@ function mergeRuns(runs: Run[]): Run[] {
   return out
 }
 
-function headerLines(h: HeaderSettings, title: string, widthTw: number): HeaderLine[] {
+function headerLines(h: HeaderSettings, title: string, widthTw: number, textScale: number): HeaderLine[] {
   const lines: HeaderLine[] = []
   const val = (t: HeaderText) => (t.show ? t.value.trim() : '')
   // factor tính theo phần trăm để làm tròn bằng số nguyên: lineH = ⌊pt × 20 × factor⌋
@@ -204,7 +220,7 @@ function headerLines(h: HeaderSettings, title: string, widthTw: number): HeaderL
     runs = mergeRuns(runs.filter((r) => r.text))
     if (!runs.length) return
     const maxSize = Math.max(...runs.map((r) => r.size))
-    lines.push({ id, runs, lineH: idiv(maxSize * 10 * factor, 100), after, lines: estimateLines(runs, widthTw) })
+    lines.push({ id, runs, lineH: idiv(maxSize * 10 * factor, 100), after, lines: estimateLines(runs, widthTw, textScale) })
   }
 
   const label = val(h.label)
@@ -285,7 +301,7 @@ export function computeLayout(input: LayoutInput): SheetLayout {
   }
 
   // --- Phần đầu phiếu
-  const lines = headerLines(hs, input.title, cardW)
+  const lines = headerLines(hs, input.title, cardW, scaleOf(input.fontScale?.text))
   const headerH = lines.length ? lines.reduce((sum, l) => sum + l.lineH * l.lines + l.after, 0) : SPACER_H
 
   // --- Cột của bảng
@@ -300,8 +316,9 @@ export function computeLayout(input: LayoutInput): SheetLayout {
   const numBox = cellBox(ps.numberCell)
   const rowPad = ROW_PAD + Math.max(textBox.padTop + textBox.padBottom, numBox.padTop + numBox.padBottom)
   const available = cardH - headerH - SAFETY
-  // 6 chữ số đậm ≈ 6 × 0,5 em = 30 twips mỗi half-point; 76 = lề trong ô + chừa viền
-  const maxW = idiv(stW - 76 - numBox.indentLeft - numBox.indentRight, 30)
+  // 6 chữ số đậm ≈ 6 × 0,5 em = 30 twips mỗi half-point (Times); 76 = lề trong ô + chừa viền
+  const perHalfPoint = Math.ceil(30 * scaleOf(input.fontScale?.digits))
+  const maxW = idiv(stW - 76 - numBox.indentLeft - numBox.indentRight, perHalfPoint)
   const top = ps.numberFontPt ? Math.trunc(ps.numberFontPt * 2) : 36
   const baseFor = (sz: number, db: number) => 18 * sz * 11 + db * 11 + 10 * rowPad
   let numSz = top

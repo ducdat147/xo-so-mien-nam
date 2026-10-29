@@ -4,7 +4,6 @@ import { IPC, type XsmnApi } from '../shared/api'
 const api: XsmnApi = {
   init: () => ipcRenderer.invoke(IPC.init),
   fetchResults: (date, force) => ipcRenderer.invoke(IPC.fetchResults, date, force),
-  fontCss: (font) => ipcRenderer.invoke(IPC.fontCss, font),
   exportSheet: (req) => ipcRenderer.invoke(IPC.exportSheet, req),
   print: (req) => ipcRenderer.invoke(IPC.print, req),
   openFile: (path) => ipcRenderer.invoke(IPC.openFile, path),

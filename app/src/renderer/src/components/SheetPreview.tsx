@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
 
 const PAD = 28
+/** Thanh phóng to nằm cách mép trên / phải của khung (khớp .zoombar trong CSS). */
+const BAR_INSET = 10
+const BAR_GAP = 8
 /** Cỡ "vừa khung" không phóng quá mức này (khổ nhỏ như một phiếu sẽ to quá). */
 const FIT_MAX = 1.6
 const MIN_ZOOM = 0.2
@@ -21,9 +24,19 @@ const clamp = (v: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v))
  * Phóng to: nút − / + / Vừa khung, Ctrl/⌘ + con lăn (hoặc chụm hai ngón trên touchpad),
  * nhấp đúp để phóng to tại chỗ trỏ chuột / trở về vừa khung.
  */
-export function SheetPreview(props: { html: string; width: number; height: number; blank?: boolean; label: string }) {
-  const { html, width, height, blank, label } = props
+export function SheetPreview(props: {
+  html: string
+  width: number
+  height: number
+  blank?: boolean
+  label: string
+  /** Lề quanh trang trong khung (px). */
+  pad?: number
+}) {
+  const { html, width, height, blank, label, pad = PAD } = props
   const boxRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
+  const [bar, setBar] = useState({ w: 0, h: 0 })
   const wrapRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLIFrameElement>(null)
   const [box, setBox] = useState({ w: 0, h: 0 })
@@ -45,8 +58,14 @@ export function SheetPreview(props: { html: string; width: number; height: numbe
   // Đổi khổ giấy thì về lại vừa khung
   useEffect(() => setZoom(null), [width, height])
 
-  const fit = box.w > 0 ? Math.max(MIN_ZOOM, Math.min((box.w - 2 * PAD) / width, (box.h - 2 * PAD) / height, FIT_MAX)) : 0
+  // Trang lấn sang dưới thanh phóng to (khung hẹp) thì chừa phía trên cho thanh, không để che đầu phiếu
+  const reserve = Math.max(pad, BAR_INSET + bar.h + BAR_GAP)
+  const underBar = (s: number) => bar.w > 0 && (box.w + width * s) / 2 > box.w - BAR_INSET - bar.w - BAR_GAP
+  const fitFor = (top: number) => Math.max(MIN_ZOOM, Math.min((box.w - 2 * pad) / width, (box.h - top - pad) / height, FIT_MAX))
+  const fitTop = box.w > 0 && underBar(fitFor(pad)) ? reserve : pad
+  const fit = box.w > 0 ? fitFor(fitTop) : 0
   const scale = zoom ?? fit
+  const padTop = zoom === null ? fitTop : underBar(scale) ? reserve : pad
   const scaleRef = useRef(scale)
   scaleRef.current = scale
 
@@ -131,12 +150,21 @@ export function SheetPreview(props: { html: string; width: number; height: numbe
   // Ghi nội dung mỗi khi html đổi; iframe vừa gắn vào trang thì ghi ở onLoad
   useEffect(paint, [html, scale > 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Đo thanh phóng to (rộng hẹp tuỳ màn: Cài đặt không có nút Cỡ thật)
+  useLayoutEffect(() => {
+    const el = barRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setBar({ w: el.offsetWidth, h: el.offsetHeight }))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [scale > 0]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const pct = Math.round(scale * 100)
   return (
     <div className="preview-shell">
       <div className={`preview${zoom !== null && zoom > fit + 0.01 ? ' zoomed' : ''}`} ref={boxRef} onMouseDown={onMouseDown}>
         {scale > 0 && (
-          <div className="preview-inner">
+          <div className="preview-inner" style={{ padding: `${padTop}px ${pad}px ${pad}px` }}>
             <div
               className="sheet-wrap"
               ref={wrapRef}
@@ -158,7 +186,7 @@ export function SheetPreview(props: { html: string; width: number; height: numbe
         )}
       </div>
       {scale > 0 && (
-        <div className="zoombar" role="group" aria-label="Phóng to thu nhỏ bản xem trước">
+        <div className="zoombar" ref={barRef} role="group" aria-label="Phóng to thu nhỏ bản xem trước">
           <button type="button" aria-label="Thu nhỏ" title="Thu nhỏ (Ctrl/⌘ + con lăn)" onClick={() => step(-1)} disabled={scale <= MIN_ZOOM + 0.001}>−</button>
           <span className="zoom-pct" aria-live="polite">{pct}%</span>
           <button type="button" aria-label="Phóng to" title="Phóng to (Ctrl/⌘ + con lăn)" onClick={() => step(1)} disabled={scale >= MAX_ZOOM - 0.001}>+</button>

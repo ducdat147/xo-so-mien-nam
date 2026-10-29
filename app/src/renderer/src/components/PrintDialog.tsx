@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { PrinterItem } from '../../../shared/api'
-import { NumberStepper } from './controls'
+import { CompactInput } from './CompactInput'
 import { Download, Printer } from './icons'
 import { PrinterSelect } from './PrinterSelect'
 import { SheetPreview } from './SheetPreview'
@@ -72,7 +72,8 @@ export function PrintDialog(props: {
               <label htmlFor="pd-copies" className="field-label">Số bản in</label>
               <span className="hint">{p.copies} tờ {p.paperName} = {p.copies * p.perSheet} phiếu</span>
             </div>
-            <NumberStepper id="pd-copies" label="số bản in" value={p.copies} onChange={p.onCopies} min={1} max={99} />
+            <CompactInput id="pd-copies" kind="copies" label="số bản in" title="Số tờ in" unit="tờ"
+              value={p.copies} min={1} max={99} step={1} onChange={(v) => v !== null && p.onCopies(v)} />
           </div>
 
           {noPrinter ? (

@@ -7,14 +7,14 @@ import { WEEKDAY_SHORT } from './dates'
 export type Paper = 'A4' | 'A5' | 'A6'
 export type OutputFormat = 'pdf' | 'docx' | 'both'
 export type Align = 'left' | 'center' | 'right'
-export type FontName = 'Times New Roman' | 'Arial'
 
 export const PAPERS: readonly Paper[] = ['A4', 'A5', 'A6']
 export const FORMATS: readonly OutputFormat[] = ['pdf', 'docx', 'both']
 export const ALIGNS: readonly Align[] = ['left', 'center', 'right']
 export type VAlign = 'top' | 'center' | 'bottom'
 export const VALIGNS: readonly VAlign[] = ['top', 'center', 'bottom']
-export const FONTS: readonly FontName[] = ['Times New Roman', 'Arial']
+/** Font phiếu mặc định (số đo của bản bash tính theo font này). */
+export const DEFAULT_FONT = 'Times New Roman'
 
 export interface HeaderText {
   show: boolean
@@ -70,7 +70,8 @@ export interface PrintSettings {
   numberCell: CellStyle
   /** null = tự chọn cỡ lớn nhất vừa phiếu. */
   numberFontPt: number | null
-  font: FontName
+  /** Tên họ font đã cài trên máy (font hệ thống, không nhúng sẵn). */
+  font: string
   colors: Colors
 }
 
@@ -133,7 +134,7 @@ export function defaultSettings(): Settings {
       textCell: { padXCm: 0.05, padYCm: 0.05, alignX: 'center', alignY: 'top' },
       numberCell: { padXCm: 0.3, padYCm: 0.05, alignX: 'right', alignY: 'center' },
       numberFontPt: null,
-      font: 'Times New Roman',
+      font: DEFAULT_FONT,
       colors: { text: '000000', accent: '000000', border: '000000', number: '000000' }
     },
     output: { dir: '~/Documents/XSMN' },
@@ -158,6 +159,16 @@ export function toNumber(v: unknown, def: number, min: number, max: number, step
   if (!Number.isFinite(n) || (typeof v === 'string' && !v.trim())) return def
   const r = step ? Math.round(n / step) * step : n
   return Math.min(max, Math.max(min, Number(r.toFixed(4))))
+}
+
+/**
+ * Tên font người dùng chọn hoặc nhập từ file .conf. Bỏ ký tự điều khiển và các ký tự có thể
+ * phá CSS/HTML (< > { } ; " và gạch chéo ngược); rỗng thì dùng `def`.
+ */
+export function normalizeFontName(v: unknown, def: string): string {
+  if (typeof v !== 'string') return def
+  const name = v.replace(/[\u0000-\u001f\u007f<>{};"\\]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80)
+  return name || def
 }
 
 export function normalizeColor(v: unknown, def: string): string {
@@ -250,7 +261,7 @@ export function normalizeSettings(raw: unknown): Settings {
     textCell: cellStyle(p.textCell, { alignX: p.alignText }, def.print.textCell),
     numberCell: cellStyle(p.numberCell, { alignX: p.alignNumber, padXCm: p.numberPadRightCm }, def.print.numberCell),
     numberFontPt: fontPt === null || fontPt === undefined || fontPt === '' ? null : toNumber(fontPt, 13, 6, 30, 0.5),
-    font: oneOf(p.font, FONTS, def.print.font),
+    font: normalizeFontName(p.font, def.print.font),
     colors: {
       text: normalizeColor(c.text, def.print.colors.text),
       accent: normalizeColor(c.accent, def.print.colors.accent),

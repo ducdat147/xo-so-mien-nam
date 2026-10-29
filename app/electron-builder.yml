@@ -14,8 +14,6 @@ files:
   - out/**/*
   - package.json
   - '!**/*.map'
-  # font in chỉ cần bản woff2 + css của 3 subset; bỏ phần còn lại cho nhẹ
-  - '!node_modules/@fontsource/*/files/*.woff'
 asar: true
 electronLanguages: [vi, en-US]
 
