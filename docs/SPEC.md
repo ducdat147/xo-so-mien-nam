@@ -55,12 +55,31 @@ app/
     select.ts        chọn & sắp xếp đài theo cài đặt (§5)
     settings.ts      mặc định, chuẩn hoá JSON (§5)
     conf.ts          nhập / xuất file .conf (§5)
+    settings-file.ts đọc / ghi settings.json (chỉ main dùng)
     layout.ts        TÍNH bố cục phiếu (§6) — dùng chung cho HTML và DOCX
+    sheet.ts         kết quả + cài đặt → layout, tên file; renderer và main cùng gọi
     render-html.ts   HTML trang in (xem trước, PDF, in)
     render-docx.ts   OOXML + jszip
-  src/renderer/      React app: màn Kết quả, màn Cài đặt
+  src/renderer/src/  React app, chỉ gọi main qua window.xsmn
+    App.tsx          khung app: thanh trên, chuyển màn, hỏi khi rời Cài đặt
+    useSettingsDraft.ts  cài đặt đã lưu + bản nháp đang sửa ở màn Cài đặt
+    labels.ts        lựa chọn và nhãn dùng chung hai màn (khổ giấy, loại file…)
+    hooks.ts         font máy, trạng thái mạng, danh sách máy in
+    fonts.ts         đọc font máy, đo FontScale (§6.5)
+    components/      phần dùng ở nhiều nơi: ô số gọn, khung xem trước, hộp in, thông báo, icon…
+    screens/
+      ResultsScreen.tsx   màn Kết quả (§7.1), chỉ ghép các phần
+      results/            hook ngày xổ + tự lấy lại kết quả; thẻ Ngày xổ, In phiếu, Lưu file
+      SettingsScreen.tsx  màn Cài đặt (§7.2), chỉ ghép các thẻ
+      settings/           thẻ thu gọn được, từng phần cài đặt, xem trước phiếu, thanh cuối
   test/fixtures/     HTML minhngoc mẫu + xsmn.conf.example (file cấu hình kiểu cũ)
 ```
+
+Chia component ở renderer: file màn hình chỉ giữ trạng thái chung và ghép các phần. Mỗi thẻ, mỗi
+phần cài đặt là một file riêng. Phần chỉ một màn dùng nằm trong thư mục của màn đó, dùng ở cả hai
+màn thì đưa vào `components/`. Việc tải kết quả và các hẹn giờ lấy lại / đổi ngày nằm trong hook
+(`useDayResult`, `useDrawDate`), không viết lẫn trong JSX. Phép tính bố cục (kể cả mức tối đa
+hiện trên màn hình) gọi hàm của `core/`, không chép công thức sang renderer.
 
 Bảo mật Electron: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`
 cho renderer; mọi truy cập mạng/file đi qua IPC ở main.
@@ -321,6 +340,9 @@ mô tả này ⇒ PDF và Word giống nhau. Chuẩn tham chiếu: bản chụp 
   (tự động); có `cardHeightCm` thì `cardH = cardHeightCm × 567`, vượt `cardHMax` thì cảnh báo và
   dùng `cardHMax` (chủ dự án thêm 28-10-2026). Phiếu thấp hơn thì phần bảng (§6.4) tự co, cỡ số
   nhỏ lại. Các bản điền theo cột (cột 1: bản 1,2; cột 2: bản 3,4). Mọi bản giống hệt nhau.
+- Mức tối đa rộng / cao mà màn Cài đặt hiện (và dùng làm giá trị Auto) lấy từ `maxCardSizeCm`
+  trong `layout.ts`: cùng công thức với `cardW` / `cardHMax`, làm tròn 0,1 cm. Gõ đúng số đó thì
+  không bị báo vượt (có test).
 
 ### 6.2 Phần đầu phiếu
 
@@ -438,7 +460,9 @@ Cột trái (≈320px):
   như ra giấy, chọn máy in và số tờ, nút **In N tờ** (có máy in cụ thể → in thẳng, không hỏi lại)
   hoặc **In…** (mở hộp thoại in của hệ thống), **Đóng** (Esc; nút có viền như nút thường). Không có
   nút lưu PDF trong hộp này (chủ dự án bỏ 29-10-2026). Máy chưa có máy in → khoá nút In, báo rõ
-  và chỉ sang mục Lưu file nếu cần PDF để in ở máy khác.
+  và chỉ sang mục Lưu file nếu cần PDF để in ở máy khác. Focus đặt sẵn vào nút In **một lần**
+  lúc mở hộp. Đổi số tờ hay máy in trong hộp không được kéo focus đi: ô số tờ chỉ ghi số khi
+  rời ô, focus nhảy là ô ghi lại số cũ (bấm ↑ mấy lần vẫn 1 tờ).
 
 Bên phải:
 - Nút chuyển **Xem trước bản in** | **Bảng kết quả** + chú thích khổ
@@ -498,7 +522,9 @@ kèm dòng "Cỡ số kết quả hiện tại: 13,5 pt (tự chỉnh để vừ
 6. Thanh cuối, ba phần không xuống dòng: trái là nhóm **Cấu hình** với hai nút biểu tượng nhập /
    xuất file .conf (xuất đúng những gì đang hiện, kể cả thay đổi chưa lưu) + phiên bản; giữa là
    thông báo (co giãn, tự xuống dòng); phải luôn là "Khôi phục mặc định" · **Lưu cài đặt**
-   (báo "Đã lưu cài đặt"). Rời màn khi chưa lưu → hỏi.
+   (báo "Đã lưu cài đặt"). Rời màn khi chưa lưu → hộp hỏi với ba nút **Ở lại** (focus sẵn,
+   Esc) · **Bỏ thay đổi** · **Lưu rồi quay lại**. Lưu lỗi thì báo ngay trong hộp. Đóng hộp là
+   mất lỗi, lần sau mở lại không còn lỗi cũ.
 
 Cửa sổ hẹp (≤ 960px, cột trái < ~600px): các cặp mục hai cột trong thẻ xếp thành một cột; "Chữ
 trong bảng" đưa tên dòng lên hàng riêng. Không có thanh cuộn ngang ở cỡ tối thiểu 900×640.
@@ -592,7 +618,8 @@ Unit (vitest, `core/` không cần Electron):
   đài; chỉ hỏi trong khung 16h–17h của hôm nay; máy chủ lỗi thì đổi máy, lỗi hết thì như cũ.
 - `select`: mode all/pick, thứ tự, đài tắt, tắt hết → in đủ, đài lạ.
 - `layout`: với mọi khổ × 3/4 đài × header mặc định/ẩn bớt/cỡ to: tổng chiều cao cột
-  ≤ chiều cao vùng in; số 6 chữ số vừa ô; cỡ số mặc định khớp §6.4.
+  ≤ chiều cao vùng in; số 6 chữ số vừa ô; cỡ số mặc định khớp §6.4; `maxCardSizeCm` ra đúng
+  mức tối đa từng khổ và nhập đúng số đó không bị cảnh báo.
 - `render-docx`: giải nén, XML hợp lệ, đúng thứ tự phần tử.
 
 Thủ công / e2e:

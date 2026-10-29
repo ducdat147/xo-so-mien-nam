@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cellBox, computeLayout, PAGE_MARGIN, PAPER_SPECS, SAFETY, type LayoutInput } from '../src/core/layout'
+import { cellBox, computeLayout, maxCardSizeCm, PAGE_MARGIN, PAPER_SPECS, SAFETY, type LayoutInput } from '../src/core/layout'
 import { PAPERS, type HeaderSettings, type Settings } from '../src/core/settings'
 import { agentSettings } from './helpers'
 import { emptyPrizes, type Prizes } from '../src/core/stations'
@@ -228,6 +228,19 @@ describe('computeLayout — nhập đúng số làm tròn hiện trên màn hìn
     const a4 = computeLayout(input({ settings: s }))
     expect(a4.cardW).toBe(5329)
     expect(a4.warnings).toEqual([])
+  })
+
+  it('maxCardSizeCm: mức tối đa màn Cài đặt hiện, nhập đúng số đó không bị báo vượt', () => {
+    expect(maxCardSizeCm('A4', 0.6, 0.6)).toEqual({ w: 9.4, h: 13.7 })
+    expect(maxCardSizeCm('A5', 0.6, 0.6)).toEqual({ w: 9.4, h: 13.2 })
+    expect(maxCardSizeCm('A6', 0.6, 0.6)).toEqual({ w: 8.9, h: 13.2 })
+    for (const paper of PAPERS) {
+      const s = agentSettings()
+      const max = maxCardSizeCm(paper, s.print.cardGapXCm, s.print.cardGapYCm)
+      s.print.cardWidthCm = max.w
+      s.print.cardHeightCm = max.h
+      expect(computeLayout(input({ settings: s, paper })).warnings).toEqual([])
+    }
   })
 })
 

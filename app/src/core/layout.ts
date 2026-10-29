@@ -189,6 +189,18 @@ export function viNumber(n: number, digits = 1): string {
   return String(Number(n.toFixed(digits))).replace('.', ',')
 }
 
+/** Bề rộng / chiều cao phiếu lớn nhất vừa khổ giấy (cm, làm tròn 0,1), cùng cách tính với computeLayout. */
+export function maxCardSizeCm(paper: Paper, gapXCm: number, gapYCm: number): { w: number; h: number } {
+  const s = PAPER_SPECS[paper]
+  const cm = (tw: number) => Math.round((tw / TWIPS_PER_CM) * 10) / 10
+  const gapX = Math.max(0, cmToTwips(gapXCm))
+  const gapY = Math.max(0, cmToTwips(gapYCm))
+  return {
+    w: cm(idiv(s.w - 2 * PAGE_MARGIN - (s.ncol - 1) * gapX, s.ncol)),
+    h: cm(idiv(s.h - 2 * PAGE_MARGIN - (s.nrow - 1) * gapY, s.nrow))
+  }
+}
+
 const charCount = (s: string) => [...s.normalize('NFC')].length
 
 /** Tỉ lệ font dùng trong layout: chặn dưới 1 (giữ đúng số đo bash), chặn trên 2. */

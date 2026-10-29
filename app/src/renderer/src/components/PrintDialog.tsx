@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
-import type { PrinterItem } from '../../../shared/api'
-import { CompactInput } from './CompactInput'
+import type { PrinterList } from '../hooks'
+import { CopiesField } from './CopiesField'
 import { Printer } from './icons'
-import { PrinterSelect } from './PrinterSelect'
+import { printerLabel, PrinterSelect } from './PrinterSelect'
 import { SheetPreview } from './SheetPreview'
 
 /**
@@ -21,9 +21,7 @@ export function PrintDialog(props: {
   paperName: string
   copies: number
   onCopies: (n: number) => void
-  printers: PrinterItem[] | null
-  findingPrinters: boolean
-  onRefreshPrinters: () => void
+  printers: PrinterList
   deviceName: string | null
   onDeviceName: (name: string | null) => void
   busy: boolean
@@ -32,11 +30,11 @@ export function PrintDialog(props: {
 }) {
   const p = props
   const printBtn = useRef<HTMLButtonElement>(null)
-  const noPrinter = !!p.printers && p.printers.length === 0
-  const printerLabel = p.printers?.find((x) => x.name === p.deviceName)?.displayName ?? p.deviceName
+  const noPrinter = !!p.printers.printers && p.printers.printers.length === 0
 
+  // Chỉ focus nút In lúc mở hộp: chạy lại theo onClose thì mỗi lần đổi số tờ / máy in là focus nhảy đi
+  useEffect(() => printBtn.current?.focus(), [])
   useEffect(() => {
-    printBtn.current?.focus()
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !p.busy) p.onClose()
     }
@@ -61,20 +59,11 @@ export function PrintDialog(props: {
             label="Máy in"
             value={p.deviceName}
             onChange={p.onDeviceName}
-            printers={p.printers}
-            loading={p.findingPrinters}
-            onRefresh={p.onRefreshPrinters}
+            list={p.printers}
             quietWhenEmpty
           />
 
-          <div className="copies">
-            <div className="copies-text">
-              <label htmlFor="pd-copies" className="field-label">Số bản in</label>
-              <span className="hint">{p.copies} tờ {p.paperName} = {p.copies * p.perSheet} phiếu</span>
-            </div>
-            <CompactInput id="pd-copies" kind="copies" label="số bản in" title="Số tờ in" unit="tờ"
-              value={p.copies} min={1} max={99} step={1} onChange={(v) => v !== null && p.onCopies(v)} />
-          </div>
+          <CopiesField id="pd-copies" copies={p.copies} onChange={p.onCopies} paper={p.paperName} perSheet={p.perSheet} />
 
           {noPrinter ? (
             <p className="print-note warn" role="status">
@@ -84,7 +73,7 @@ export function PrintDialog(props: {
           ) : (
             <p className="print-note">
               {p.deviceName
-                ? `Bấm In là in ngay ${p.copies} tờ ra “${printerLabel}”, không hỏi lại.`
+                ? `Bấm In là in ngay ${p.copies} tờ ra “${printerLabel(p.printers, p.deviceName)}”, không hỏi lại.`
                 : 'Bấm In sẽ mở hộp thoại in của hệ thống để chọn máy in.'}
             </p>
           )}

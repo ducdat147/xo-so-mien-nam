@@ -51,6 +51,12 @@ make check       # kiểm tra kiểu + unit test
 make dist-mac    # đóng gói trên máy (dist-win, dist-win7, dist-linux tương tự) → app/release/
 ```
 
+Code nằm trong `app/src/`. Phần `core/` là logic thuần (lấy kết quả, tính bố cục phiếu, xuất
+PDF/Word) và có unit test. `main/` lo cửa sổ, mạng, file và lệnh in. `renderer/` là giao diện
+React: mỗi màn có một file trong `screens/`, các thẻ của màn đó nằm ở `screens/results/` hoặc
+`screens/settings/`, phần dùng chung đặt trong `components/`. Cây thư mục đầy đủ và quy ước chia
+component xem [SPEC §2](docs/SPEC.md#2-công-nghệ--cấu-trúc-đề-xuất).
+
 Tài liệu: [docs/SPEC.md](docs/SPEC.md) (đặc tả), [design/](design/) (giao diện đã duyệt),
 [CLAUDE.md](CLAUDE.md) (các quyết định đã chốt). Bản dòng lệnh bash cũ đã bỏ (còn trong lịch sử git);
 cài đặt nhập/xuất được bằng file `.conf` ở màn Cài đặt, nhận cả file `xsmn.conf` của bản cũ.

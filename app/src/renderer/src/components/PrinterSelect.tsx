@@ -1,4 +1,4 @@
-import type { PrinterItem } from '../../../shared/api'
+import type { PrinterList } from '../hooks'
 import { Refresh } from './icons'
 
 /** Ô chọn máy in + nút tìm lại. Giá trị rỗng = để hộp thoại in của hệ thống hỏi khi in. */
@@ -7,13 +7,12 @@ export function PrinterSelect(props: {
   label: string
   value: string | null
   onChange: (name: string | null) => void
-  printers: PrinterItem[] | null
-  loading: boolean
-  onRefresh: () => void
+  list: PrinterList
   /** Không hiện dòng "chưa thấy máy in" (khi chỗ dùng đã báo riêng). */
   quietWhenEmpty?: boolean
 }) {
-  const { id, label, value, onChange, printers, loading, onRefresh, quietWhenEmpty } = props
+  const { id, label, value, onChange, list, quietWhenEmpty } = props
+  const { printers, loading, refresh } = list
   const missing = !!value && !!printers && !printers.some((p) => p.name === value)
 
   let hint: string | null = null
@@ -44,7 +43,7 @@ export function PrinterSelect(props: {
           className="btn square"
           aria-label="Tìm lại máy in"
           title="Tìm lại máy in"
-          onClick={onRefresh}
+          onClick={refresh}
           disabled={loading}
         >
           <Refresh spinning={loading} />
@@ -54,3 +53,7 @@ export function PrinterSelect(props: {
     </div>
   )
 }
+
+/** Tên máy in để hiện cho người dùng (chưa thấy trong danh sách thì dùng tên kỹ thuật). */
+export const printerLabel = (list: PrinterList, name: string | null) =>
+  list.printers?.find((p) => p.name === name)?.displayName ?? name ?? ''

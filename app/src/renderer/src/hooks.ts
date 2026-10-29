@@ -30,8 +30,16 @@ export function useOnline(): boolean {
   return online
 }
 
-/** Danh sách máy in của máy (null = đang tìm lần đầu). refresh() để tìm lại khi vừa cắm máy in. */
-export function usePrinters(): { printers: PrinterItem[] | null; loading: boolean; refresh: () => void } {
+export interface PrinterList {
+  /** null = đang tìm lần đầu. */
+  printers: PrinterItem[] | null
+  loading: boolean
+  /** Tìm lại, khi vừa cắm máy in. */
+  refresh: () => void
+}
+
+/** Danh sách máy in của máy. */
+export function usePrinters(): PrinterList {
   const [printers, setPrinters] = useState<PrinterItem[] | null>(null)
   const [loading, setLoading] = useState(false)
   const refresh = useCallback(() => {

@@ -1,12 +1,12 @@
 import { useEffect, type ReactNode } from 'react'
 import { api } from '../api'
+import { fileName } from '../labels'
 
 export type ToastData =
   | { kind: 'saved'; files: string[] }
   | { kind: 'printed'; copies: number; printer?: string }
   | { kind: 'error'; title: string; text: string; action?: { label: string; run: () => void } }
 
-const fileName = (p: string) => p.split(/[\\/]/).pop() ?? p
 const openLabel = (p: string) => (p.toLowerCase().endsWith('.pdf') ? 'Mở PDF' : 'Mở Word')
 
 export function Toast({ toast, onClose }: { toast: ToastData; onClose: () => void }) {

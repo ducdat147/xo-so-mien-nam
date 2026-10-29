@@ -97,3 +97,48 @@ export const Alert = () => (
     <path d="M12 7.5v5.5M12 16.5v.01" />
   </svg>
 )
+
+export const Eye = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" {...base}>
+    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+)
+
+export const EyeOff = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" {...base}>
+    <path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6" />
+    <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    <path d="M3 3l18 18" />
+  </svg>
+)
+
+/** Nhập: mũi tên đi vào tờ giấy. */
+export const FileImport = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" {...base}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5" />
+    <path d="M12 11v6M9 14l3 3 3-3" />
+  </svg>
+)
+
+/** Xuất: mũi tên đi ra khỏi tờ giấy. */
+export const FileExport = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" {...base}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5" />
+    <path d="M12 17v-6M9 14l3-3 3 3" />
+  </svg>
+)
+
+export const Close = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" {...base}>
+    <path d="M6 6l12 12M18 6L6 18" />
+  </svg>
+)
+
+export const Chevron = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" {...base} strokeWidth={2.2}>
+    <path d="M6 9l6 6 6-6" />
+  </svg>
+)

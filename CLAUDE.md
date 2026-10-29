@@ -57,6 +57,20 @@ nhập/xuất cấu hình bằng file `.conf` (KEY=VALUE), nhận cả khoá ki�
   nằm đầu nhóm In phiếu. Dải trạng thái kết quả nằm bên phải, trên khung xem trước (chủ dự án
   chuyển cả ba 29-10-2026). Code in ở `main/print.ts`.
 
+## Đổi giao diện / thêm tính năng: duyệt trên Figma trước (chủ dự án chốt 29-10-2026)
+
+File Figma: [Xo So App](https://www.figma.com/design/7fep1hQW2l8Sl61hoE5ivO/Xo-So-App)
+(trang **Màn hình** = giao diện đang dùng, **Components** = thành phần, **Example** = bản chờ duyệt).
+
+1. Mọi việc đổi UI hoặc thêm tính năng có phần giao diện: **chưa sửa code**. Dựng bản thiết kế
+   trên trang **Example** (tạo trang nếu chưa có), dùng lại component sẵn có, rồi gửi link cho
+   chủ dự án duyệt. Duyệt chưa xong thì chỉ sửa trên Example.
+2. Duyệt xong: đè bản mới lên màn tương ứng ở trang Màn hình, cập nhật component liên quan ở
+   trang Components (tạo component mới nếu cần), dọn bản trên Example.
+3. Sau đó mới code, bám đúng bản đã duyệt.
+
+Sửa lỗi không đổi giao diện thì không cần bước này.
+
 ## Lưu ý kỹ thuật
 
 - HTML minhngoc **thiếu `</td>`** giữa các cột đài; chỉ lấy bảng `table.bkqmiennam`
