@@ -35,6 +35,8 @@ mac:
   hardenedRuntime: false
 dmg:
   title: Xổ Số Đại Lý ${version}
+  # Bật tính năng tự cập nhật thì chuyển sang true
+  writeUpdateInfo: false
 
 win:
   target:
@@ -53,6 +55,8 @@ nsis:
   shortcutName: Xổ Số Đại Lý
   uninstallDisplayName: Xổ Số Đại Lý
   language: '1066'
+  # Bật tính năng tự cập nhật thì chuyển sang true
+  differentialPackage: false
 
 linux:
   target:

@@ -8,6 +8,7 @@ release/
 xsmn_*.pdf
 xsmn_*.docx
 !design/reference/*.pdf
+/resources/
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/

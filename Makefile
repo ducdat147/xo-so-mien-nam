@@ -49,15 +49,17 @@ dist-all:
 
 dist-mac: ## Đóng gói macOS (.dmg arm64 + x64) vào app/release
 	cd $(APP) && npm run dist:mac
+	cp $(APP)/release/*.dmg resources/
 
-dist-win: ## Đóng gói Windows 10/11 (.exe x64)
+dist-win: ## Đóng gói Windows 10/11 (.exe x64) và Windows 7 (.exe gộp 32 + 64-bit, Electron 22) vào app/release
 	cd $(APP) && npm run dist:win
-
-dist-win7: ## Đóng gói Windows 7 (.exe gộp 32 + 64-bit, Electron 22)
 	cd $(APP) && npm run dist:win7
+	cp $(APP)/release/*.exe resources/
 
 dist-linux: ## Đóng gói Linux (.AppImage + .deb x64)
 	cd $(APP) && npm run dist:linux
+	cp $(APP)/release/*.AppImage resources/
+	cp $(APP)/release/*.deb resources/
 
 golden: ## Cập nhật bản chụp file Word chuẩn (chỉ khi cố ý đổi bố cục; xem diff trước khi commit)
 	cd $(APP) && UPDATE_GOLDEN=1 npx vitest run test/render-docx.test.ts
