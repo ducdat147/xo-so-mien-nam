@@ -1,0 +1,51 @@
+# Trang tài liệu (website/, VitePress) → GitHub Pages: https://ducdat147.github.io/xo-so-mien-nam/
+# Lần đầu: Settings → Pages → Source chọn "GitHub Actions".
+name: Docs
+
+on:
+  push:
+    branches: [master]
+    paths: ['website/**', 'CHANGELOG.md', '.github/workflows/docs.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Chỉ đăng bản mới nhất; bản đang đăng dở thì để chạy xong
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # "Cập nhật lần cuối" của từng trang lấy từ lịch sử git
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: website/.vitepress/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

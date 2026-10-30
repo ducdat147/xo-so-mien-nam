@@ -7,7 +7,7 @@ RUN := env -u ELECTRON_RUN_AS_NODE
 
 .DEFAULT_GOAL := help
 .PHONY: help install dev start build build-win7 test test-watch typecheck check golden clean \
-        version dist-mac dist-win dist-win7 dist-linux
+        version dist-mac dist-win dist-win7 dist-linux docs docs-build
 
 help: ## Liệt kê các lệnh
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -63,6 +63,12 @@ dist-linux: ## Đóng gói Linux (.AppImage + .deb x64)
 
 golden: ## Cập nhật bản chụp file Word chuẩn (chỉ khi cố ý đổi bố cục; xem diff trước khi commit)
 	cd $(APP) && UPDATE_GOLDEN=1 npx vitest run test/render-docx.test.ts
+
+docs: ## Chạy trang tài liệu (website/) ở máy, tự nạp lại khi sửa
+	cd website && ([ -d node_modules ] || npm install) && npm run dev
+
+docs-build: ## Build trang tài liệu vào website/.vitepress/dist (báo lỗi nếu có link hỏng)
+	cd website && ([ -d node_modules ] || npm install) && npm run build
 
 clean: ## Xoá thư mục build
 	rm -rf $(APP)/out $(APP)/dist $(APP)/release
