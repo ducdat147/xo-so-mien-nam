@@ -3,7 +3,7 @@ import { maxCardSizeCm, viNumber } from '../../../../../core/layout'
 import type { SheetStation } from '../../../../../core/select'
 import type { CellStyle, HeaderLineStyle, HeaderText, PrizeRowStyle, TextStyle } from '../../../../../core/settings'
 import {
-  defaultRow, DEFAULT_FONT, HEADER_AFTER_MAX, HEADER_SIZE_MAX, HEADER_SIZE_MIN, LABEL_SIZE_MAX, LABEL_SIZE_MIN, ROW_DELTA_MAX,
+  defaultRow, DEFAULT_FONT, lineParts, HEADER_AFTER_MAX, HEADER_SIZE_MAX, HEADER_SIZE_MIN, LABEL_SIZE_MAX, LABEL_SIZE_MIN, ROW_DELTA_MAX,
   ROW_DELTA_MIN
 } from '../../../../../core/settings'
 import { STATIONS, type PrizeKey } from '../../../../../core/stations'
@@ -12,8 +12,8 @@ import { ColorField } from '../../../components/ColorField'
 import { CompactInput } from '../../../components/CompactInput'
 import { Segmented } from '../../../components/controls'
 import {
-  IconCalendar, IconEye, IconEyeOff, IconHash, IconLine, IconPage, IconPanelTop, IconReceipt, IconRows, IconTable,
-  IconTag, IconType
+  IconCalendar, IconEye, IconEyeOff, IconHash, IconLine, IconPage, IconPanelBottom, IconPanelTop, IconPlus, IconReceipt,
+  IconRows, IconTable, IconTag, IconTrash, IconType
 } from '../../../components/icons'
 import { LineAlignPicker } from '../../../components/LineAlignPicker'
 import { PagePositionPicker } from '../../../components/PagePositionPicker'
@@ -21,23 +21,14 @@ import { TextStyleToggles } from '../../../components/TextStyleToggles'
 import { useLocalFonts } from '../../../hooks'
 import { PAPER_OPTIONS } from '../../../labels'
 import type { DraftProps } from '../../../useSettingsDraft'
-import { findNode, prizeOf, shownOf, toggleShown, type NodeId } from './nodes'
-
-type LineKey = 'name' | 'addr' | 'contact'
-type TextKey = 'label' | LineKey
-const LINE_OF: Record<'line1' | 'line2' | 'line3', LineKey> = { line1: 'name', line2: 'addr', line3: 'contact' }
-const TEXT_OF: Partial<Record<NodeId, TextKey>> = { 'line1.label': 'label', 'line1.text': 'name', 'line2.text': 'addr', 'line3.text': 'contact' }
+import {
+  addFreeLine, canAddLine, findNode, lineOf, prizeOf, removeFreeLine, shownOf, toggleShown, type NodeId, type TreeNode
+} from './nodes'
 
 const KIND: Partial<Record<NodeId, string>> = {
   card: 'Khung ngoài cùng của phiếu',
   head: 'Các dòng in trên bảng kết quả',
-  line1: 'Nhóm Label + Text',
-  'line1.label': 'Dòng 1 · nhãn trước Text',
-  'line1.text': 'Dòng 1 · chữ chính',
-  line2: 'Nhóm Label + Text',
-  'line2.text': 'Dòng 2 · chữ chính',
-  line3: 'Nhóm Label + Text',
-  'line3.text': 'Dòng 3 · chữ chính',
+  foot: 'Dòng tự do dưới bảng kết quả',
   date: 'Luôn in · sát trên bảng kết quả',
   table: 'Khung và viền bảng',
   hdr: 'Chữ “Giải” và tên đài',
@@ -47,8 +38,7 @@ const KIND: Partial<Record<NodeId, string>> = {
 }
 
 const ICON: Partial<Record<NodeId, () => ReactElement>> = {
-  card: IconReceipt, head: IconPanelTop, line1: IconLine, line2: IconLine, line3: IconLine,
-  'line1.label': IconType, 'line1.text': IconType, 'line2.text': IconType, 'line3.text': IconType,
+  card: IconReceipt, head: IconPanelTop, foot: IconPanelBottom,
   date: IconCalendar, table: IconTable, hdr: IconRows, labels: IconTag, numbers: IconHash, rows: IconRows
 }
 
@@ -73,7 +63,10 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 /** Cột phải tab Phiếu: thuộc tính phần đang chọn; không chọn gì thì là thuộc tính trang giấy. */
 export function Inspector(props: DraftProps & {
+  tree: TreeNode
   selected: NodeId | null
+  /** Chọn phần khác (sau khi thêm / xoá dòng). */
+  onSelect: (id: NodeId | null) => void
   /** Cỡ số kết quả đang dùng thật (pt). */
   numberSizePt: number
   /** Cỡ số đang dùng thật của từng hàng giải (pt). */
@@ -83,10 +76,17 @@ export function Inspector(props: DraftProps & {
   /** Các đài trên phiếu đang xem (để sửa nhanh tên viết tắt). */
   stations: SheetStation[]
 }) {
-  const { selected: id, draft } = props
-  const name = id ? findNode(id)?.name ?? '' : 'Trang giấy'
-  const kind = id ? KIND[id] ?? 'Hàng giải' : 'Chưa chọn phần nào trên phiếu'
-  const Icon = id ? ICON[id] ?? IconRows : IconPage
+  const { selected: id, draft, tree } = props
+  const node = id ? findNode(tree, id) : null
+  const line = lineOf(id)
+  const groupName = line ? findNode(tree, `line:${line.line}`)?.name ?? '' : ''
+  const name = id ? node?.name ?? '' : 'Trang giấy'
+  const kind = !id ? 'Chưa chọn phần nào trên phiếu'
+    : line?.part === 'label' ? `${groupName} · nhãn trước Text`
+      : line?.part === 'text' ? `${groupName} · chữ chính`
+        : line ? (node?.free ? 'Dòng tự do · Label + Text' : 'Nhóm Label + Text')
+          : KIND[id] ?? 'Hàng giải'
+  const Icon = !id ? IconPage : line ? (line.part ? IconType : IconLine) : ICON[id] ?? IconRows
   const shown = id ? shownOf(draft, id) : null
 
   return (
@@ -100,8 +100,17 @@ export function Inspector(props: DraftProps & {
         {id && shown !== null && (
           <button type="button" className="eye" aria-pressed={shown} aria-label={`Hiện ${name} trên phiếu`}
             title={shown ? 'Đang hiện – bấm để ẩn' : 'Đang ẩn – bấm để hiện'}
-            onClick={() => props.setDraft((d) => toggleShown(d, id))}>
+            onClick={() => props.setDraft((d) => toggleShown(d, id), { step: true })}>
             {shown ? <IconEye /> : <IconEyeOff />}
+          </button>
+        )}
+        {line && !line.part && node?.free && (
+          <button type="button" className="icon-btn small tip tip-end" aria-label={`Xoá ${name}`} data-tip="Xoá dòng tự do"
+            onClick={() => {
+              props.setDraft((d) => removeFreeLine(d, line.line), { step: true })
+              props.onSelect(null)
+            }}>
+            <IconTrash />
           </button>
         )}
       </div>
@@ -118,25 +127,24 @@ function Body(props: Props) {
   const { selected: id, draft, setDraft } = props
   if (!id) return <PageProps {...props} />
   if (id === 'card') return <CardProps {...props} />
-  if (id === 'line1' || id === 'line2' || id === 'line3') {
+  const line = lineOf(id)
+  if (line && !line.part) {
     return (
       <>
-        <LineStyle {...props} lineKey={LINE_OF[id]} label={`Dòng ${id.slice(-1)}`} afterHint="Khoảng cách tới dòng dưới." />
+        <LineStyle {...props} line={line.line} label={findNode(props.tree, id)?.name ?? ''} afterHint="Khoảng cách tới dòng dưới." />
         <p className="hint">
-          {id === 'line1'
-            ? 'Label và Text in liền nhau trên cùng một dòng, căn chung một khối. Để trống Label thì dòng chỉ còn Text.'
-            : 'Chọn Text bên trong để sửa chữ, cỡ chữ, màu.'}
+          Label và Text in liền nhau trên cùng một dòng, căn chung một khối. Để trống Label thì dòng chỉ còn Text.
+          Kéo nhóm trong cây (hoặc Alt + ↑/↓) để đổi thứ tự.
         </p>
       </>
     )
   }
-  const textKey = TEXT_OF[id]
-  if (textKey) {
-    const group = id.slice(0, 5) as NodeId
+  if (line?.part) {
+    const group = findNode(props.tree, `line:${line.line}`)?.name ?? ''
     return (
       <>
-        <TextProps {...props} textKey={textKey} label={findNode(id)?.name ?? ''} />
-        <p className="hint">In đúng như chữ đã gõ. Căn lề và khoảng cách: chọn {findNode(group)?.name} trong cây.</p>
+        <TextProps {...props} line={line.line} part={line.part} label={`${line.part === 'label' ? 'Label' : 'Text'} ${group}`} />
+        <p className="hint">In đúng như chữ đã gõ. Căn lề và khoảng cách: chọn {group} trong cây.</p>
       </>
     )
   }
@@ -155,11 +163,11 @@ function Body(props: Props) {
             <ColorField label="Màu chữ Thứ, ngày" value={h.color} onChange={(c) => setDraft((d) => { d.header.date.color = c ?? h.color })} />
           </Field>
         </Sec>
-        <LineStyle {...props} lineKey="date" label="Thứ, ngày" afterHint="Khoảng cách tới bảng kết quả." />
+        <LineStyle {...props} line="date" label="Thứ, ngày" afterHint="Khoảng cách tới bảng kết quả." />
       </>
     )
   }
-  if (id === 'head') return <p className="hint">Chọn một dòng trong cây (Dòng 1–3, Thứ, ngày) để chỉnh. Phần đầu cao lên thì bảng kết quả tự co lại cho vừa phiếu.</p>
+  if (id === 'head' || id === 'foot') return <SectionProps {...props} section={id} />
   if (id === 'table') return <TableProps {...props} />
   if (id === 'hdr') return <HeaderRowProps {...props} />
   if (id === 'labels') return <PrizeLabelProps {...props} />
@@ -183,16 +191,21 @@ function InkToggles(props: { label: string; value: TextStyle; onChange: (c: Part
   return <TextStyleToggles label={`Kiểu chữ ${label}`} value={{ bold: value.bold, italic: value.italic }} onChange={onChange} />
 }
 
-function TextProps(props: DraftProps & { textKey: TextKey; label: string }) {
-  const { draft, setDraft, textKey, label } = props
-  const h: HeaderText = draft.header[textKey]
-  const set = (change: Partial<HeaderText>) => setDraft((d) => { Object.assign(d.header[textKey], change) })
+function TextProps(props: DraftProps & { line: string; part: 'label' | 'text'; label: string }) {
+  const { draft, setDraft, line, part, label } = props
+  const h = lineParts(draft.header, line)?.[part]
+  if (!h) return null
+  const set = (change: Partial<HeaderText>) => setDraft((d) => {
+    const t = lineParts(d.header, line)?.[part]
+    if (t) Object.assign(t, change)
+  })
   return (
     <Sec title="Chữ">
-      <input id={`f-${textKey}`} className="input" value={h.value} aria-label={`Chữ ${label}`}
+      <input id={`f-${line}-${part}`} className="input" value={h.value} aria-label={`Chữ ${label}`}
+        placeholder={part === 'label' ? 'Ví dụ: ĐC:, DĐ:, Zalo:' : undefined}
         onChange={(e) => set({ value: e.target.value })} />
       <div className="row">
-        <SizeInput id={`f-${textKey}-size`} label={label} value={h.size} onChange={(size) => set({ size })} />
+        <SizeInput id={`f-${line}-${part}-size`} label={label} value={h.size} onChange={(size) => set({ size })} />
         <InkToggles label={label} value={h} onChange={set} />
       </div>
       <Field label="Màu chữ">
@@ -202,20 +215,52 @@ function TextProps(props: DraftProps & { textKey: TextKey; label: string }) {
   )
 }
 
-function LineStyle(props: DraftProps & { lineKey: LineKey | 'date'; label: string; afterHint: string }) {
-  const { draft, setDraft, lineKey, label, afterHint } = props
-  const line: HeaderLineStyle = draft.header[lineKey]
-  const set = (change: Partial<HeaderLineStyle>) => setDraft((d) => { Object.assign(d.header[lineKey], change) })
+/** Căn lề + khoảng cách dưới của một dòng (nhóm Label + Text, hoặc Thứ, ngày). */
+function LineStyle(props: DraftProps & { line: string; label: string; afterHint: string }) {
+  const { draft, setDraft, line, label, afterHint } = props
+  const holder = (h: typeof draft.header) => (line === 'date' ? h.date : lineParts(h, line)?.style)
+  const st = holder(draft.header)
+  if (!st) return null
+  const set = (change: Partial<Pick<HeaderLineStyle, 'align' | 'afterPt'>>) => setDraft((d) => {
+    const t = holder(d.header)
+    if (t) Object.assign(t, change)
+  })
   return (
     <Sec title="Căn lề và khoảng cách">
       <div className="row">
-        <LineAlignPicker label={`Căn lề ${label}`} value={line.align} onChange={(align) => set({ align })} />
-        <CompactInput id={`f-${lineKey}-after`} kind="gap-y" label={`khoảng cách dưới ${label}`} unit="pt"
-          title={afterHint} value={line.afterPt} min={0} max={HEADER_AFTER_MAX} step={0.5}
-          onChange={(v) => set({ afterPt: v ?? line.afterPt })} />
+        <LineAlignPicker label={`Căn lề ${label}`} value={st.align} onChange={(align) => set({ align })} />
+        <CompactInput id={`f-${line}-after`} kind="gap-y" label={`khoảng cách dưới ${label}`} unit="pt"
+          title={afterHint} value={st.afterPt} min={0} max={HEADER_AFTER_MAX} step={0.5}
+          onChange={(v) => set({ afterPt: v ?? st.afterPt })} />
       </div>
       <p className="hint">{afterHint}</p>
     </Sec>
+  )
+}
+
+/** Đầu phiếu / Cuối phiếu: thêm dòng tự do. */
+function SectionProps(props: Props & { section: 'head' | 'foot' }) {
+  const { draft, setDraft, section, onSelect } = props
+  const can = canAddLine(draft, section)
+  const add = () => {
+    const probe = structuredClone(draft)
+    const id = addFreeLine(probe, section)
+    if (!id) return
+    setDraft((d) => { addFreeLine(d, section) }, { step: true })
+    onSelect(`${id}.text`)
+  }
+  return (
+    <>
+      <button type="button" className="btn subtle" onClick={add} disabled={!can}>
+        <IconPlus /> Thêm dòng tự do
+      </button>
+      <p className="hint">
+        {section === 'head'
+          ? 'Dòng tự do gồm Label + Text như các dòng có sẵn. Kéo nhóm Dòng trong cây để đổi thứ tự; Thứ, ngày luôn sát trên bảng.'
+          : 'Dòng in dưới bảng kết quả. Phần cuối cao lên thì bảng tự co lại cho vừa phiếu, cỡ số có thể nhỏ đi.'}{' '}
+        Mỗi phần tối đa 5 dòng tự do{can ? '' : ', đã đủ'}.
+      </p>
+    </>
   )
 }
 
@@ -424,7 +469,7 @@ function PrizeRowProps(props: Props & { prize: PrizeKey }) {
         <p className="hint">Máy in đen trắng in nền màu thành xám nhạt.</p>
       </Sec>
       <button type="button" className="btn subtle" disabled={!changed}
-        onClick={() => setDraft((d) => { d.print.rows[k] = defaultRow(k) })}>
+        onClick={() => setDraft((d) => { d.print.rows[k] = defaultRow(k) }, { step: true })}>
         Đặt lại hàng này
       </button>
     </>

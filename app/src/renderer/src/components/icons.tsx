@@ -179,3 +179,6 @@ export const IconEyeOff = icon16('M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7
 export const IconBold = icon16('M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z')
 export const IconItalic = icon16('M19 4h-9M14 20H5M15 4 9 20')
 export const IconUnderline = icon16('M6 4v6a6 6 0 0 0 12 0V4M4 20h16')
+export const IconPanelBottom = icon16('M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM3 15h18')
+export const IconPlus = icon16('M12 5v14M5 12h14')
+export const IconTrash = icon16('M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6')

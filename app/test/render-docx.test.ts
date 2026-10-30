@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { parseResults } from '../src/core/parse'
 import { documentXml, renderDocx } from '../src/core/render-docx'
 import { importConf } from '../src/core/conf'
-import { defaultSettings, type Paper, type Settings } from '../src/core/settings'
+import { defaultSettings, newFreeLine, type Paper, type Settings } from '../src/core/settings'
 import { buildSheet } from '../src/core/sheet'
 import { agentSettings, D24, D26, GOLDEN, HTML_24, HTML_26 } from './helpers'
 
@@ -34,6 +34,20 @@ function styledSettings(): Settings {
   return s
 }
 
+/** Label dòng địa chỉ, dòng tự do xen giữa phần đầu và hai dòng dưới bảng (cài đặt bản 4). */
+function linesSettings(): Settings {
+  const s = agentSettings()
+  s.header.addr.value = 'Chợ Tapao - Đ.Kho - T.Linh – B.Thuận'
+  s.header.addrLabel = { ...s.header.addrLabel, value: 'ĐC:', size: 7.5, bold: false }
+  s.header.extra = [{ ...newFreeLine('h1'), text: { ...newFreeLine('h1').text, value: 'Zalo: 0983 019 343', size: 8 } }]
+  s.header.order = ['name', 'h1', 'addr', 'contact']
+  s.header.footer = [
+    { ...newFreeLine('f1'), text: { ...newFreeLine('f1').text, value: 'Chúc quý khách may mắn!', bold: false, italic: true } },
+    { ...newFreeLine('f2'), label: { ...newFreeLine('f2').label, value: 'Lưu ý:', size: 8 }, text: { ...newFreeLine('f2').text, value: 'Vé rách, mất góc không đổi thưởng', size: 8 }, align: 'left' }
+  ]
+  return s
+}
+
 // test/golden/*.document.xml: bản chụp file Word do bản bash cũ (build_docx, nay đã bỏ) sinh ra.
 // App phải ra giống hệt từng ký tự. Cố ý đổi bố cục thì cập nhật bản chụp: `make golden`
 // (UPDATE_GOLDEN=1) rồi xem kỹ diff trước khi commit.
@@ -46,7 +60,8 @@ describe('render-docx giống hệt bản chụp chuẩn (từ bản bash cũ, s
     ['custom-A4', customSettings, day26, D26, 'A4'],
     ['custom-A6', customSettings, day26, D26, 'A6'],
     // bản chụp của app (bản bash không có màu, kiểu chữ riêng từng phần)
-    ['styled-A4', styledSettings, day26, D26, 'A4']
+    ['styled-A4', styledSettings, day26, D26, 'A4'],
+    ['lines-A4', linesSettings, day26, D26, 'A4']
   ]
   for (const [name, settings, day, date, paper] of cases) {
     it(name, () => {
@@ -55,6 +70,29 @@ describe('render-docx giống hệt bản chụp chuẩn (từ bản bash cũ, s
       expect(documentXml(layout)).toBe(golden(name))
     })
   }
+})
+
+describe('dòng tự do', () => {
+  it('dòng cuối phiếu nằm ngay sau bảng của từng phiếu, trước khoảng cách / ngắt cột của phiếu sau', () => {
+    const { layout } = buildSheet(linesSettings(), day26, { date: D26, paper: 'A4', blank: false })
+    const xml = documentXml(layout)
+    expect(xml.match(/<\/w:tbl><w:p><w:pPr>[^]*?Chúc quý khách may mắn!/g)).toHaveLength(4)
+    // Label và Text cùng cỡ, cùng kiểu thì gộp một run như bản bash
+    expect(xml).toContain('<w:t xml:space="preserve">Lưu ý: Vé rách, mất góc không đổi thưởng</w:t>')
+    expect(XMLValidator.validate(xml)).toBe(true)
+    // thứ tự phần đầu theo order: tên, dòng tự do, địa chỉ có Label
+    const head = layout.header.lines.map((l) => l.id)
+    expect(head).toEqual(['name', 'h1', 'addr', 'contact', 'date'])
+    expect(layout.header.lines[2].runs.map((r) => r.text)).toEqual(['ĐC: ', 'Chợ Tapao - Đ.Kho - T.Linh – B.Thuận'])
+  })
+
+  it('dòng cuối phiếu trừ vào chiều cao bảng', () => {
+    const plain = buildSheet(agentSettings(), day26, { date: D26, paper: 'A4', blank: false }).layout
+    const l = buildSheet(linesSettings(), day26, { date: D26, paper: 'A4', blank: false }).layout
+    expect(l.footer.height).toBeGreaterThan(0)
+    expect(l.table.available).toBe(plain.cardH - l.header.height - l.footer.height - 160)
+    expect(l.table.available).toBeLessThan(plain.table.available)
+  })
 })
 
 describe('màu, kiểu chữ riêng từng phần', () => {

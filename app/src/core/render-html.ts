@@ -42,16 +42,19 @@ const hp = (size: number) => `${size / 2}pt`
 const ink = (st: { color: string; bold: boolean; italic?: boolean; underline?: boolean }) =>
   `;color:#${st.color}${st.bold ? '' : ';font-weight:400'}${st.italic ? ';font-style:italic' : ''}${st.underline ? ';text-decoration:underline' : ''}`
 
-function headerHtml(l: SheetLayout, withIndent: boolean, parts: boolean): string {
+function headerHtml(l: SheetLayout, withIndent: boolean, parts: boolean, footer = false): string {
   const { left, right } = withIndent ? l.header.indent : { left: 0, right: 0 }
   const pad = left || right ? ` style="padding-left:${pt(left)};padding-right:${pt(right)}"` : ''
-  if (!l.header.lines.length) return `<div class="head"${pad}><div style="height:${pt(SPACER_H)}"></div></div>`
-  const lines = l.header.lines
+  const src = footer ? l.footer.lines : l.header.lines
+  if (footer && !src.length) return ''
+  if (!src.length) return `<div class="head"${pad}><div style="height:${pt(SPACER_H)}"></div></div>`
+  const prefix = footer ? 'foot' : 'line'
+  const lines = src
     .map((line) => {
       const maxSize = Math.max(...line.runs.map((r) => r.size))
       const runs = line.runs.map((r) => `<span style="font-size:${hp(r.size)}${ink(r)}">${htmlEscape(r.text)}</span>`).join('')
       const align = line.align === 'center' ? '' : `;text-align:${line.align}`
-      return `<p${partAttr(parts, `line-${line.id}`)} style="font-size:${hp(maxSize)};line-height:${pt(line.lineH)};margin-bottom:${pt(line.after)}${align}">${runs}</p>`
+      return `<p${partAttr(parts, `${prefix}-${line.id}`)} style="font-size:${hp(maxSize)};line-height:${pt(line.lineH)};margin-bottom:${pt(line.after)}${align}">${runs}</p>`
     })
     .join('')
   return `<div class="head"${pad}>${lines}</div>`
@@ -90,7 +93,7 @@ function tableHtml(l: SheetLayout, parts: boolean): string {
 }
 
 function cardHtml(l: SheetLayout, withIndent: boolean, parts = false): string {
-  return `<section class="card">${headerHtml(l, withIndent, parts)}${tableHtml(l, parts)}</section>`
+  return `<section class="card">${headerHtml(l, withIndent, parts)}${tableHtml(l, parts)}${headerHtml(l, withIndent, parts, true)}</section>`
 }
 
 const JUSTIFY = { top: 'flex-start', center: 'center', bottom: 'flex-end' } as const

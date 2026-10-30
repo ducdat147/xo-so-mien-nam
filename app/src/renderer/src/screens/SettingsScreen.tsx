@@ -13,7 +13,7 @@ import { SAMPLE_DATE, SAMPLE_DAY } from '../sample'
 import type { DraftHistory, SetDraft } from '../useSettingsDraft'
 import { Inspector } from './settings/editor/Inspector'
 import { LayerTree } from './settings/editor/LayerTree'
-import { nodeName, nodeOfPart, partOf, type NodeId } from './settings/editor/nodes'
+import { buildTree, findNode, nodeName, nodeOfPart, partOf, type NodeId } from './settings/editor/nodes'
 import { OutputSection } from './settings/OutputSection'
 import { PrinterSection } from './settings/PrinterSection'
 import { SettingsBar } from './settings/SettingsBar'
@@ -143,6 +143,12 @@ function CardEditor(props: SettingsScreenProps) {
   const html = useMemo(() => renderHtml(sheet.layout, { mode: 'card', parts: true }), [sheet])
   const l = sheet.layout
   const numberSizePt = l.table.numberSize / 2
+  const tree = useMemo(() => buildTree(draft), [draft])
+  // Phần đang chọn không còn (xoá dòng tự do, hoàn tác): bỏ chọn
+  useEffect(() => {
+    if (selected && !findNode(tree, selected)) setSelected(null)
+    if (hovered && !findNode(tree, hovered)) setHovered(null)
+  }, [tree]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Esc (ngoài ô nhập) bỏ chọn, như bấm ra nền
   useEffect(() => {
@@ -156,7 +162,7 @@ function CardEditor(props: SettingsScreenProps) {
 
   return (
     <div className="editor">
-      <LayerTree {...edit} selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
+      <LayerTree {...edit} tree={tree} selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
       <div className="editor-canvas">
         <SheetPreview
           html={html}
@@ -165,9 +171,9 @@ function CardEditor(props: SettingsScreenProps) {
           label="Phiếu đang sửa"
           pad={24}
           pick={{
-            selected: partOf(selected),
-            hovered: partOf(hovered),
-            label: selected ? nodeName(selected) : '',
+            selected: partOf(draft, selected),
+            hovered: partOf(draft, hovered),
+            label: selected ? nodeName(tree, selected) : '',
             onPick: (part) => setSelected(part ? nodeOfPart(part) : null),
             onHover: (part) => setHovered(part ? nodeOfPart(part) : null)
           }}
@@ -179,7 +185,7 @@ function CardEditor(props: SettingsScreenProps) {
         </p>
         {l.warnings.length > 0 && <ul className="warnings editor-caption">{l.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
       </div>
-      <Inspector {...edit} selected={selected} numberSizePt={numberSizePt} dateLine={l.title} stations={sheet.stations}
+      <Inspector {...edit} tree={tree} onSelect={setSelected} selected={selected} numberSizePt={numberSizePt} dateLine={l.title} stations={sheet.stations}
         rowSizePt={Object.fromEntries(PRIZES.map((k) => [k, l.table.prizeRows[k].size / 2])) as Record<PrizeKey, number>} />
     </div>
   )

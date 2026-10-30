@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { normalizeSettings, type Settings } from '../../core/settings'
 import { api } from './api'
 
-/** Sửa bản nháp: hàm nhận một bản sao, cứ sửa thẳng trên đó. */
-export type SetDraft = (fn: (d: Settings) => void) => void
+/**
+ * Sửa bản nháp: hàm nhận một bản sao, cứ sửa thẳng trên đó. `step`: luôn là một bước hoàn tác riêng
+ * (thêm / xoá / đổi thứ tự dòng, ẩn hiện…), không gộp với lần gõ ngay trước.
+ */
+export type SetDraft = (fn: (d: Settings) => void, opts?: { step?: boolean }) => void
 
 /** Props chung của các phần trong màn Cài đặt. */
 export interface DraftProps {
@@ -61,12 +64,12 @@ export function useSettingsDraft() {
   }, [])
 
   const setDraft: SetDraft = useCallback(
-    (fn) =>
+    (fn, opts) =>
       commit((prev) => {
         const next = structuredClone(prev)
         fn(next)
         return next
-      }, true),
+      }, !opts?.step),
     [commit]
   )
 

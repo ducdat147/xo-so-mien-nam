@@ -4,13 +4,14 @@
 // của bản bash đã bỏ (STATIONS, STATIONS_T2…, CARD_GAP_CM, ALIGN_TEXT, ALIGN_NUMBER, NUMBER_PAD_RIGHT_CM,
 // AGENT_PHONES). File chưa có CONF_VERSION=2 là kiểu cũ: phiếu tự thêm "ĐC: " trước AGENT_ADDRESS.
 // CONF_VERSION=3 thêm màu, kiểu chữ từng phần (khoá COLOR_TEXT/ACCENT/NUMBER/BORDER của bản 2 vẫn nhận).
+// CONF_VERSION=4 thêm Label cho dòng địa chỉ / liên hệ, dòng tự do đầu / cuối phiếu, thứ tự dòng.
 
 import { WEEKDAY_SHORT } from './dates'
 import {
-  ALIGNS, FORMATS, HEADER_AFTER_MAX, HEADER_SIZE_MAX, HEADER_SIZE_MIN, LABEL_SIZE_MAX, LABEL_SIZE_MIN, legacyAddrLine,
+  ALIGNS, BUILTIN_LINES, FORMATS, FREE_LINES_MAX, HEADER_AFTER_MAX, newFreeLine, HEADER_SIZE_MAX, HEADER_SIZE_MIN, LABEL_SIZE_MAX, LABEL_SIZE_MIN, legacyAddrLine,
   legacyContactLine, normalizeColor, normalizeFontName, normalizeSettings, PAPERS, ROW_DELTA_MAX, ROW_DELTA_MIN,
   SETTINGS_VERSION, toNumber, VALIGNS, defaultSettings,
-  type Align, type CellStyle, type HeaderLineText, type OutputFormat, type Paper, type PrizeRowStyle, type Settings,
+  type Align, type CellStyle, type FreeLine, type HeaderLineText, type HeaderText, type OutputFormat, type Paper, type PrizeRowStyle, type Settings,
   type TextStyle, type VAlign
 } from './settings'
 import { findStation, PRIZES, scheduleFor, STATIONS, type PrizeKey } from './stations'
@@ -112,6 +113,15 @@ export function importConf(text: string, base: Settings = defaultSettings()): Co
   /** Rỗng = theo mức chung (null). */
   const setOptColor = (k: string, v: string, apply: (c: string | null) => void) => (v.trim() ? setColor(k, v, apply) : (apply(null), ok()))
   const setOptBool = (k: string, v: string, apply: (b: boolean | null) => void) => (v.trim() ? setBool(k, v, apply) : (apply(null), ok()))
+  /** Một đoạn chữ (Label / Text): không có thuộc tính là chữ, còn lại SHOW / SIZE / COLOR / BOLD / ITALIC. */
+  const setPart = (k: string, v: string, t: HeaderText, prop: string | undefined) => {
+    if (!prop) { t.value = v; t.show = true; return ok() }
+    if (prop === 'SHOW') setBool(k, v, (b) => { t.show = b })
+    else if (prop === 'SIZE') setNum(k, v, HEADER_SIZE_MIN, HEADER_SIZE_MAX, (n) => { t.size = n })
+    else if (prop === 'COLOR') setColor(k, v, (c) => { t.color = c })
+    else if (prop === 'BOLD') setBool(k, v, (b) => { t.bold = b })
+    else setBool(k, v, (b) => { t.italic = b })
+  }
   /** COLOR_ACCENT của bản 2: số ĐB in màu này; trùng màu số thì để ĐB theo màu số. */
   let legacyAccent: string | null = null
   const setAlign = (k: string, v: string, apply: (a: Align) => void) => {
@@ -135,8 +145,46 @@ export function importConf(text: string, base: Settings = defaultSettings()): Co
   let mode: Settings['stations']['mode'] | null = null
   const confVersion = toNumber(conf.get('CONF_VERSION'), 1, 1, Infinity)
 
+  // HEADER_LINES / FOOTER_LINES: số dòng tự do; có khoá này thì danh sách thay hẳn theo file
+  for (const [kind, list, prefix] of [['HEADER', 'extra', 'h'], ['FOOTER', 'footer', 'f']] as const) {
+    const c = conf.get(`${kind}_LINES`)
+    if (c === undefined) continue
+    const n = toNumber(c, -1, -1, FREE_LINES_MAX + 1, 1)
+    if (n < 0 || n > FREE_LINES_MAX) continue
+    s.header[list] = Array.from({ length: n }, (_, i) => newFreeLine(`${prefix}${i + 1}`))
+    if (list === 'extra') s.header.order = s.header.order.filter((id) => (BUILTIN_LINES as readonly string[]).includes(id))
+  }
+  const freeLine = (kind: string, n: string): FreeLine | undefined => (kind === 'HEADER' ? s.header.extra : s.header.footer)[Number(n) - 1]
+
   for (const [key, v] of conf) {
     if (key === 'CONF_VERSION') continue
+    if (key === 'HEADER_LINES' || key === 'FOOTER_LINES') {
+      const n = toNumber(v, -1, -1, FREE_LINES_MAX + 1, 1)
+      if (n < 0 || n > FREE_LINES_MAX) bad(key)
+      else ok()
+      continue
+    }
+    if (key === 'HEADER_ORDER') {
+      // name, addr, contact, line1 … line5 (dòng tự do theo thứ tự HEADER_LINE_n)
+      const ids = splitList(v).map((t) => (/^line\d$/.test(t) ? freeLine('HEADER', t.slice(4))?.id : t))
+      if (ids.some((id) => !id || ![...BUILTIN_LINES, ...s.header.extra.map((x) => x.id)].includes(id))) bad(key)
+      else { s.header.order = ids as string[]; ok() }
+      continue
+    }
+    const labelKey = key.match(/^(AGENT_ADDRESS|AGENT_CONTACT)_LABEL(?:_(SHOW|SIZE|COLOR|BOLD|ITALIC))?$/)
+    if (labelKey) {
+      setPart(key, v, labelKey[1] === 'AGENT_ADDRESS' ? s.header.addrLabel : s.header.contactLabel, labelKey[2])
+      continue
+    }
+    const freeKey = key.match(/^(HEADER|FOOTER)_LINE_(\d)_(?:(LABEL|TEXT)(?:_(SHOW|SIZE|COLOR|BOLD|ITALIC))?|(ALIGN|AFTER_PT))$/)
+    if (freeKey) {
+      const f = freeLine(freeKey[1], freeKey[2])
+      if (!f) bad(key)
+      else if (freeKey[3]) setPart(key, v, freeKey[3] === 'LABEL' ? f.label : f.text, freeKey[4])
+      else if (freeKey[5] === 'ALIGN') setAlign(key, v, (a) => { f.align = a })
+      else setNum(key, v, 0, HEADER_AFTER_MAX, (n) => { f.afterPt = n })
+      continue
+    }
     const textKey = TEXT_KEYS[key]
     if (textKey) {
       const h = s.header[textKey]
@@ -308,6 +356,21 @@ const bool = (b: boolean) => (b ? '1' : '0')
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 
 const optBool = (b: boolean | null) => (b === null ? '' : bool(b))
+/** Một đoạn chữ: chữ, ẩn/hiện, cỡ, màu, kiểu chữ. */
+const partKeys = (k: string, t: HeaderText) => [
+  `${k}=${q(t.value)}`, `${k}_SHOW=${bool(t.show)}`, `${k}_SIZE=${num(t.size)}`,
+  `${k}_COLOR=${t.color}`, `${k}_BOLD=${bool(t.bold)}`, `${k}_ITALIC=${bool(t.italic)}`
+]
+/** Dòng tự do thứ n (1…5) của phần đầu / cuối. */
+const freeKeys = (kind: string, list: FreeLine[]) => [
+  `${kind}_LINES=${list.length}`,
+  ...list.flatMap((f, i) => [
+    ...partKeys(`${kind}_LINE_${i + 1}_LABEL`, f.label),
+    ...partKeys(`${kind}_LINE_${i + 1}_TEXT`, f.text),
+    `${kind}_LINE_${i + 1}_ALIGN=${f.align}`,
+    `${kind}_LINE_${i + 1}_AFTER_PT=${num(f.afterPt)}`
+  ])
+]
 /** Màu, đậm, nghiêng của một đoạn chữ. */
 const inkKeys = (k: string, t: TextStyle) => [`${k}_COLOR=${t.color}`, `${k}_BOLD=${bool(t.bold)}`, `${k}_ITALIC=${bool(t.italic)}`]
 
@@ -344,13 +407,22 @@ export function exportConf(settings: Settings, meta: { appName: string; version:
     ...inkKeys('AGENT_LABEL', h.label),
     ...lineKeys('AGENT_NAME', h.name),
     ...lineKeys('AGENT_ADDRESS', h.addr),
+    '# Label in liền trước địa chỉ / dòng liên hệ (như nhãn trước tên), để trống thì không in',
+    ...partKeys('AGENT_ADDRESS_LABEL', h.addrLabel),
     '# Dòng liên hệ (số điện thoại)',
     ...lineKeys('AGENT_CONTACT', h.contact),
+    ...partKeys('AGENT_CONTACT_LABEL', h.contactLabel),
     '# Dòng thứ, ngày: luôn in, tự đổi theo ngày xổ. _AFTER_PT là khoảng cách tới bảng kết quả.',
     `DATE_LINE_SIZE=${num(h.date.size)}`,
     `DATE_LINE_ALIGN=${h.date.align}`,
     `DATE_LINE_AFTER_PT=${num(h.date.afterPt)}`,
     ...inkKeys('DATE_LINE', h.date),
+    '# Dòng tự do (tối đa 5 mỗi phần): Label + Text in liền nhau. HEADER_LINES / FOOTER_LINES: số dòng.',
+    '# HEADER_ORDER: thứ tự dòng phần đầu (name, addr, contact, line1 … line5); Thứ, ngày luôn cuối.',
+    `HEADER_ORDER=${q(h.order.map((id) => (BUILTIN_LINES as readonly string[]).includes(id) ? id : `line${h.extra.findIndex((x) => x.id === id) + 1}`).join(', '))}`,
+    ...freeKeys('HEADER', h.extra),
+    '# Dòng tự do dưới bảng kết quả',
+    ...freeKeys('FOOTER', h.footer),
     '',
     '# ---------- Đài cần in',
     '# STATIONS_MODE: all = mọi đài quay trong ngày; pick = theo danh sách từng thứ dưới đây',

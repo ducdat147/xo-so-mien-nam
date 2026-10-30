@@ -2,7 +2,8 @@
 // dùng chung cho render-html (PDF, xem trước, in) và render-docx. Số đo port từ build_docx của
 // bản bash cũ (đã bỏ): giữ nguyên phép chia nguyên của bash để ra đúng từng twip.
 
-import type { Align, CellStyle, HeaderLineStyle, HeaderSettings, HeaderText, Paper, PrintSettings, TextStyle, VAlign } from './settings'
+import type { Align, CellStyle, HeaderSettings, HeaderText, Paper, PrintSettings, TextStyle, VAlign } from './settings'
+import { lineParts } from './settings'
 import { PRIZES, PRIZE_COUNT, PRIZE_LABEL, type PrizeKey, type Prizes } from './stations'
 
 export const TWIPS_PER_CM = 567
@@ -56,7 +57,8 @@ export interface Run extends TextStyle {
 }
 
 export interface HeaderLine {
-  id: 'name' | 'addr' | 'contact' | 'date'
+  /** "name" | "addr" | "contact" | "date" | id dòng tự do. */
+  id: string
   runs: Run[]
   align: Align
   /** Chiều cao mỗi dòng (exact). */
@@ -153,6 +155,8 @@ export interface SheetLayout {
     /** Thụt lề phần đầu phiếu để nằm đúng trên bảng (chỉ khác 0 khi trang một cột). */
     indent: { left: number; right: number }
   }
+  /** Dòng tự do dưới bảng (cùng thụt lề với phần đầu). */
+  footer: { lines: HeaderLine[]; height: number }
   table: {
     width: number
     labW: number
@@ -245,12 +249,13 @@ function mergeRuns(runs: Run[]): Run[] {
   return out
 }
 
-function headerLines(h: HeaderSettings, title: string, widthTw: number, textScale: number): HeaderLine[] {
+/** Các dòng chữ trên / dưới bảng. `footer`: dòng tự do dưới bảng thay cho phần đầu. */
+function headerLines(h: HeaderSettings, title: string, widthTw: number, textScale: number, footer = false): HeaderLine[] {
   const lines: HeaderLine[] = []
   const val = (t: HeaderText) => (t.show ? t.value.trim() : '')
   const ink = (t: TextStyle): TextStyle => ({ color: t.color, bold: t.bold, italic: t.italic })
   // factor tính theo phần trăm để làm tròn bằng số nguyên: lineH = ⌊pt × 20 × factor⌋
-  const push = (id: HeaderLine['id'], runs: Run[], factor: number, style: HeaderLineStyle) => {
+  const push = (id: string, runs: Run[], factor: number, style: { align: Align; afterPt: number }) => {
     runs = mergeRuns(runs.filter((r) => r.text))
     if (!runs.length) return
     const maxSize = Math.max(...runs.map((r) => r.size))
@@ -263,17 +268,25 @@ function headerLines(h: HeaderSettings, title: string, widthTw: number, textScal
       lines: estimateLines(runs, widthTw, textScale)
     })
   }
+  /** Label in liền trước Text (cách một dấu cách), theo căn lề / khoảng cách chung của dòng. */
+  const group = (id: string, label: HeaderText, text: HeaderText, style: { align: Align; afterPt: number }) => {
+    const l = val(label)
+    const t = val(text)
+    // Dòng tên cao 1,36 lần cỡ chữ như bản bash, các dòng khác 1,2
+    push(id, [
+      { text: l && t ? `${l} ` : l, size: ptToHalf(label.size), ...ink(label) },
+      { text: t, size: ptToHalf(text.size), ...ink(text) }
+    ], id === 'name' ? 136 : 120, style)
+  }
 
-  // Nhãn in chung dòng với tên, theo căn lề / khoảng cách của dòng tên
-  const label = val(h.label)
-  const name = val(h.name)
-  push('name', [
-    { text: label && name ? `${label} ` : label, size: ptToHalf(h.label.size), ...ink(h.label) },
-    { text: name, size: ptToHalf(h.name.size), ...ink(h.name) }
-  ], 136, h.name)
-
-  push('addr', [{ text: val(h.addr), size: ptToHalf(h.addr.size), ...ink(h.addr) }], 120, h.addr)
-  push('contact', [{ text: val(h.contact), size: ptToHalf(h.contact.size), ...ink(h.contact) }], 120, h.contact)
+  if (footer) {
+    for (const f of h.footer) group(f.id, f.label, f.text, f)
+    return lines
+  }
+  for (const id of h.order) {
+    const p = lineParts(h, id)
+    if (p) group(id, p.label, p.text, p.style)
+  }
   push('date', [{ text: title, size: ptToHalf(h.date.size), ...ink(h.date) }], 131, h.date)
   return lines
 }
@@ -341,6 +354,9 @@ export function computeLayout(input: LayoutInput): SheetLayout {
   // --- Phần đầu phiếu
   const lines = headerLines(hs, input.title, cardW, scaleOf(input.fontScale?.text))
   const headerH = lines.length ? lines.reduce((sum, l) => sum + l.lineH * l.lines + l.after, 0) : SPACER_H
+  // --- Dòng tự do dưới bảng: chiều cao trừ vào phần dành cho bảng
+  const footLines = headerLines(hs, input.title, cardW, scaleOf(input.fontScale?.text), true)
+  const footerH = footLines.reduce((sum, l) => sum + l.lineH * l.lines + l.after, 0)
 
   // --- Cột của bảng
   const n = Math.max(1, input.stations.length)
@@ -353,7 +369,7 @@ export function computeLayout(input: LayoutInput): SheetLayout {
   const textBox = cellBox(ps.textCell)
   const numBox = cellBox(ps.numberCell)
   const rowPad = ROW_PAD + Math.max(textBox.padTop + textBox.padBottom, numBox.padTop + numBox.padBottom)
-  const available = cardH - headerH - SAFETY
+  const available = cardH - headerH - footerH - SAFETY
   // 6 chữ số đậm ≈ 6 × 0,5 em = 30 twips mỗi half-point (Times); 76 = lề trong ô + chừa viền
   const perHalfPoint = Math.ceil(30 * scaleOf(input.fontScale?.digits))
   const maxW = idiv(stW - 76 - numBox.indentLeft - numBox.indentRight, perHalfPoint)
@@ -436,6 +452,7 @@ export function computeLayout(input: LayoutInput): SheetLayout {
     cardHMax,
     cardAlign: ps.cardAlign,
     header: { lines, height: headerH, indent: spare > 0 ? indent : { left: 0, right: 0 } },
+    footer: { lines: footLines, height: footerH },
     table: {
       width: tblW,
       labW,

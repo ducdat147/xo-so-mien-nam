@@ -70,13 +70,16 @@ function cell(width: number, vAlign: VAlign, paras: string, fill: string | null 
 const spacerPara = (h: number) =>
   `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="${h}" w:lineRule="exact"/></w:pPr></w:p>`
 
-function headerXml(l: SheetLayout): string {
+function linesXml(l: SheetLayout, lines: SheetLayout['header']['lines']): string {
   const { left, right } = l.header.indent
   const ind = left > 0 || right > 0 ? `<w:ind w:left="${left}" w:right="${right}"/>` : ''
-  if (!l.header.lines.length) return spacerPara(SPACER_H)
-  return l.header.lines
+  return lines
     .map((line) => para(line.align, line.after, line.runs.map((r) => run(r.text, r.color, r.size, r)).join(''), line.lineH, ind))
     .join('')
+}
+
+function headerXml(l: SheetLayout): string {
+  return l.header.lines.length ? linesXml(l, l.header.lines) : spacerPara(SPACER_H)
 }
 
 function tableXml(l: SheetLayout): string {
@@ -120,7 +123,8 @@ function tableXml(l: SheetLayout): string {
 
 export function documentXml(l: SheetLayout): string {
   const header = headerXml(l)
-  const tbl = tableXml(l)
+  // Dòng tự do cuối phiếu: đoạn văn ngay sau bảng, trước khoảng cách / ngắt cột của phiếu sau
+  const tbl = tableXml(l) + linesXml(l, l.footer.lines)
   const colBreak = '<w:r><w:br w:type="column"/></w:r>'
   const gapPara = spacerPara(l.gapY)
   let body = ''

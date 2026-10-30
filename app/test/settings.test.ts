@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { exportConf, importConf, parseConf } from '../src/core/conf'
-import { defaultSettings, normalizeSettings } from '../src/core/settings'
+import { defaultSettings, newFreeLine, normalizeSettings } from '../src/core/settings'
 import { readSettingsFile, writeSettingsFile } from '../src/core/settings-file'
 
 /** File cấu hình mẫu của bản bash cũ (đã bỏ): app vẫn phải nhập được file .conf kiểu này. */
@@ -30,12 +30,13 @@ describe('defaultSettings', () => {
     expect(s.print.textCell).toEqual({ padXCm: 0.05, padYCm: 0.05, alignX: 'center', alignY: 'top' })
     expect(s.print.numberCell).toEqual({ padXCm: 0.3, padYCm: 0.05, alignX: 'right', alignY: 'center' })
     // Thông tin để trống, đại lý tự nhập; căn giữa, khoảng cách như phiếu bản bash
-    expect(Object.keys(s.header)).toEqual(['label', 'name', 'addr', 'contact', 'date'])
+    expect(Object.keys(s.header)).toEqual(['label', 'name', 'addr', 'contact', 'date', 'addrLabel', 'contactLabel', 'order', 'extra', 'footer'])
+    expect(s.header).toMatchObject({ order: ['name', 'addr', 'contact'], extra: [], footer: [], addrLabel: { value: '' }, contactLabel: { value: '' } })
     expect([s.header.label, s.header.name, s.header.addr, s.header.contact].map((h) => h.value)).toEqual(['', '', '', ''])
     expect([s.header.name, s.header.addr, s.header.contact, s.header.date].map((h) => [h.align, h.afterPt])).toEqual([
       ['center', 3], ['center', 0], ['center', 0], ['center', 3]
     ])
-    expect(s.version).toBe(3)
+    expect(s.version).toBe(4)
     expect(s.stations.mode).toBe('all')
     expect(s.stations.byWeekday[6].map((p) => p.slug)).toEqual(['tp-hcm', 'long-an', 'binh-phuoc', 'hau-giang'])
     expect(Object.keys(s.stations.byWeekday)).toHaveLength(7)
@@ -92,7 +93,7 @@ describe('normalizeSettings', () => {
     }
     const s = normalizeSettings(old)
     const ink = { color: '000000', bold: true, italic: false }
-    expect(s.version).toBe(3)
+    expect(s.version).toBe(4)
     expect(s.header.addr).toEqual({ show: true, size: 9, value: 'ĐC: Chợ Lớn', align: 'center', afterPt: 0, ...ink })
     expect(s.header.contact).toEqual({ show: false, size: 11, value: 'DĐ: 0909 000 111  DĐ: 0283 333 444', align: 'center', afterPt: 0, ...ink })
     expect(s.header.date).toEqual({ size: 12, align: 'center', afterPt: 3, ...ink })
@@ -324,6 +325,14 @@ describe('exportConf', () => {
         4: { ...s.print.rows['4'], sizeDeltaPt: -0.5, bold: false }
       }
     }
+    // Label dòng địa chỉ, dòng tự do đầu (xen giữa) và cuối phiếu
+    s.header.addrLabel = { ...s.header.addrLabel, value: 'ĐC:', italic: true }
+    s.header.extra = [{ ...newFreeLine('h1'), text: { ...newFreeLine('h1').text, value: 'Zalo: 0909 000 111' }, align: 'left' }]
+    s.header.order = ['name', 'h1', 'addr', 'contact']
+    s.header.footer = [
+      { ...newFreeLine('f1'), text: { ...newFreeLine('f1').text, value: 'Chúc quý khách may mắn!', bold: false, italic: true } },
+      { ...newFreeLine('f2'), label: { ...newFreeLine('f2').label, value: 'Ghi chú:' }, afterPt: 2 }
+    ]
     s.printer = { deviceName: 'Canon LBP2900', silent: true, copies: 3 }
     s.output.dir = 'D:\\Xo so\\phieu'
     s.autoRefresh = false
@@ -361,13 +370,25 @@ describe('exportConf', () => {
     expect(r.settings.output).toEqual(defaultSettings().output)
   })
 
+  it('dòng tự do: số dòng trong file thay hẳn danh sách; thứ tự theo HEADER_ORDER; dòng không có thì báo bỏ qua', () => {
+    const base = defaultSettings()
+    base.header.extra = [newFreeLine('abc')]
+    base.header.order = ['abc', 'name', 'addr', 'contact']
+    const r = importConf(['HEADER_LINES=2', 'HEADER_LINE_2_TEXT="Hai"', 'HEADER_LINE_3_TEXT="Ba"', 'HEADER_ORDER="line2, name, addr, contact, line1"', 'FOOTER_LINES=9'].join('\n'), base)
+    expect(r.settings.header.extra.map((x) => [x.id, x.text.value])).toEqual([['h1', ''], ['h2', 'Hai']])
+    expect(r.settings.header.order).toEqual(['h2', 'name', 'addr', 'contact', 'h1'])
+    expect(r.ignored).toEqual(['HEADER_LINE_3_TEXT', 'FOOTER_LINES'])
+    // không có HEADER_LINES: giữ dòng đang có
+    expect(importConf('PAPER=A5', base).settings.header.extra.map((x) => x.id)).toEqual(['abc'])
+  })
+
   it('file xuất đọc được bằng mắt: có chú thích, đài theo thứ tự, đài tắt có dấu -', () => {
     const text = exportConf(custom(), meta)
     expect(text).toContain('# Cài đặt Xổ Số Đại Lý — xuất lúc 29-10-2026 10:00 (phiên bản 1.0.0)')
     expect(text).toContain('STATIONS_ORDER_T2="ca-mau, -tp-hcm, dong-thap"')
     expect(text).toContain('CARD_WIDTH_CM=auto')
     expect(text).toContain('NUMBER_ALIGN=bottom-center')
-    expect(text).toContain('CONF_VERSION=3')
+    expect(text).toContain('CONF_VERSION=4')
     expect(text).toContain('AGENT_CONTACT="DĐ: 0909 000 111  DĐ: 0283 333 444"')
     expect(text).toContain('DATE_LINE_AFTER_PT=6')
     expect(text).not.toMatch(/AGENT_PHONES|DATE_LINE_SHOW/)

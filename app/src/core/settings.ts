@@ -49,6 +49,24 @@ export interface HeaderSettings {
   contact: HeaderLineText
   /** Dòng thứ, ngày: luôn in, luôn là dòng cuối ngay trên bảng. */
   date: HeaderLineStyle & TextStyle
+  /** Label của dòng địa chỉ / dòng liên hệ (in liền trước chữ, như nhãn trước tên). */
+  addrLabel: HeaderText
+  contactLabel: HeaderText
+  /** Thứ tự các dòng phần đầu (Thứ, ngày luôn cuối): "name" | "addr" | "contact" | id dòng tự do. */
+  order: string[]
+  /** Dòng tự do phần đầu, tối đa FREE_LINES_MAX. */
+  extra: FreeLine[]
+  /** Dòng tự do dưới bảng kết quả, theo thứ tự in, tối đa FREE_LINES_MAX. */
+  footer: FreeLine[]
+}
+
+/** Dòng tự do: Label + Text in liền nhau trên một dòng, căn lề và khoảng cách chung. */
+export interface FreeLine {
+  id: string
+  label: HeaderText
+  text: HeaderText
+  align: Align
+  afterPt: number
 }
 
 export interface StationPick {
@@ -151,8 +169,10 @@ export interface PrinterSettings {
  * địa chỉ và in mỗi số thành "DĐ: …"; normalizeSettings chuyển sang để phiếu in ra như cũ.
  * 3: màu, kiểu chữ riêng từng phần và từng hàng giải (30-10-2026). Bản 2 có 4 màu chung
  * (print.colors); normalizeSettings đổ sang từng phần, số ĐB lấy màu nhấn như cũ.
+ * 4: Label cho dòng địa chỉ / liên hệ, dòng tự do đầu và cuối phiếu, thứ tự dòng (30-10-2026). Bản 3
+ * thiếu các trường này thì lấy mặc định (trống), phiếu in ra như cũ.
  */
-export const SETTINGS_VERSION = 3
+export const SETTINGS_VERSION = 4
 
 export interface Settings {
   version: typeof SETTINGS_VERSION
@@ -175,6 +195,32 @@ export const LABEL_SIZE_MAX = 24
 export const ROW_DELTA_MIN = -6
 export const ROW_DELTA_MAX = 6
 export const BLACK = '000000'
+/** Mỗi phần (đầu, cuối phiếu) có tối đa ngần này dòng tự do. */
+export const FREE_LINES_MAX = 5
+/** Ba dòng có sẵn của phần đầu, theo thứ tự mặc định. */
+export const BUILTIN_LINES = ['name', 'addr', 'contact'] as const
+export type BuiltinLine = (typeof BUILTIN_LINES)[number]
+const FREE_ID = /^[a-z0-9]{1,12}$/
+
+/** Dòng tự do mới: Label trống, Text cỡ 11 pt, căn giữa. */
+export function newFreeLine(id: string): FreeLine {
+  return {
+    id,
+    label: { show: true, size: 10, value: '', color: BLACK, bold: true, italic: false },
+    text: { show: true, size: 11, value: '', color: BLACK, bold: true, italic: false },
+    align: 'center',
+    afterPt: 0
+  }
+}
+
+/** Label, Text và chỗ giữ căn lề / khoảng cách của một dòng (có sẵn hoặc tự do); null nếu không có. */
+export function lineParts(h: HeaderSettings, id: string): { label: HeaderText; text: HeaderText; style: { align: Align; afterPt: number } } | null {
+  if (id === 'name') return { label: h.label, text: h.name, style: h.name }
+  if (id === 'addr') return { label: h.addrLabel, text: h.addr, style: h.addr }
+  if (id === 'contact') return { label: h.contactLabel, text: h.contact, style: h.contact }
+  const f = h.extra.find((x) => x.id === id) ?? h.footer.find((x) => x.id === id)
+  return f ? { label: f.label, text: f.text, style: f } : null
+}
 
 /** Hàng giải chưa chỉnh gì; ĐB to hơn cỡ chung 1 pt như phiếu bản bash. */
 export const defaultRow = (k: PrizeKey): PrizeRowStyle => ({
@@ -201,7 +247,12 @@ export function defaultSettings(): Settings {
       name: { show: true, size: 14, value: '', align: 'center', afterPt: 3, ...ink() },
       addr: { show: true, size: 10, value: '', align: 'center', afterPt: 0, ...ink() },
       contact: { show: true, size: 10, value: '', align: 'center', afterPt: 0, ...ink() },
-      date: { size: 13, align: 'center', afterPt: 3, ...ink() }
+      date: { size: 13, align: 'center', afterPt: 3, ...ink() },
+      addrLabel: { show: true, size: 10, value: '', ...ink() },
+      contactLabel: { show: true, size: 10, value: '', ...ink() },
+      order: [...BUILTIN_LINES],
+      extra: [],
+      footer: []
     },
     stations: { mode: 'all', byWeekday: defaultByWeekday(), shortNames: {} },
     print: {
@@ -288,6 +339,33 @@ function headerLine(v: unknown, def: HeaderLineText): HeaderLineText {
   return { ...headerText(v, def), ...headerStyle(v, def) }
 }
 
+function freeLines(v: unknown, prefix: string): FreeLine[] {
+  const out: FreeLine[] = []
+  for (const item of (Array.isArray(v) ? v : []).slice(0, FREE_LINES_MAX)) {
+    const o = obj(item)
+    // id hỏng hoặc trùng: đặt theo vị trí (cố định, chuẩn hoá lại không đổi)
+    let id = typeof o.id === 'string' && FREE_ID.test(o.id) && !BUILTIN_LINES.includes(o.id as BuiltinLine) ? o.id : ''
+    if (!id || out.some((x) => x.id === id)) id = `${prefix}${out.length + 1}`
+    const def = newFreeLine(id)
+    out.push({
+      id,
+      label: headerText(o.label, def.label),
+      text: headerText(o.text, def.text),
+      align: oneOf(o.align, ALIGNS, def.align),
+      afterPt: headerAfter(o.afterPt, def.afterPt)
+    })
+  }
+  return out
+}
+
+/** Thứ tự dòng phần đầu: giữ id hợp lệ theo thứ tự đã lưu, thêm dòng còn thiếu vào cuối. */
+function lineOrder(v: unknown, extra: FreeLine[]): string[] {
+  const valid = [...BUILTIN_LINES, ...extra.map((x) => x.id)] as string[]
+  const out = (Array.isArray(v) ? v : []).filter((id, i, a): id is string => valid.includes(id as string) && a.indexOf(id) === i)
+  for (const id of valid) if (!out.includes(id)) out.push(id)
+  return out
+}
+
 const labelSize = (v: unknown, def: number) => toNumber(v, def, LABEL_SIZE_MIN, LABEL_SIZE_MAX, 0.5)
 
 function prizeRow(v: unknown, def: PrizeRowStyle): PrizeRowStyle {
@@ -369,8 +447,16 @@ export function normalizeSettings(raw: unknown): Settings {
     addr: headerLine(h.addr, withInk(def.header.addr)),
     contact: headerLine(h.contact, withInk(def.header.contact)),
     // date.show của bản cũ bỏ qua: dòng thứ, ngày luôn in
-    date: { ...headerStyle(h.date, def.header.date), ...textStyle(obj(h.date), withInk(def.header.date)) }
+    date: { ...headerStyle(h.date, def.header.date), ...textStyle(obj(h.date), withInk(def.header.date)) },
+    addrLabel: headerText(h.addrLabel, withInk(def.header.addrLabel)),
+    contactLabel: headerText(h.contactLabel, withInk(def.header.contactLabel)),
+    order: [],
+    extra: freeLines(h.extra, 'h'),
+    footer: freeLines(h.footer, 'f')
   }
+  // id dòng tự do không được trùng giữa đầu và cuối phiếu
+  header.footer = header.footer.map((f, i) => (header.extra.some((x) => x.id === f.id) ? { ...f, id: `f${i + 1}x` } : f))
+  header.order = lineOrder(h.order, header.extra)
   // Bản 1: thêm "ĐC: " vào địa chỉ, ghép danh sách số thành một dòng, để phiếu in ra như cũ
   if (typeof r.version !== 'number' || r.version < 2) {
     header.addr.value = legacyAddrLine(header.addr.value)

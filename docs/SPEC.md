@@ -248,7 +248,7 @@ mặc định của nhãn, địa chỉ, DĐ là **10 pt** (chủ dự án chỉ
 
 ```jsonc
 {
-  "version": 3,
+  "version": 4,
   "header": {                               // các dòng đầu phiếu, theo thứ tự hiển thị; chữ in nguyên văn
     // label in chung dòng với name, theo align / afterPt của dòng name
     "label":   { "show": true, "size": 10, "value": "Đại lý vé số:" },
@@ -258,7 +258,16 @@ mặc định của nhãn, địa chỉ, DĐ là **10 pt** (chủ dự án chỉ
     "addr":    { "show": true, "size": 10, "value": "ĐC: Chợ Tapao - Đ.Kho - T.Linh – B.Thuận", "align": "center", "afterPt": 0 },
     "contact": { "show": true, "size": 10, "value": "DĐ: 01212 019 343  DĐ: 0983 019 343", "align": "center", "afterPt": 0 },
     // "Thứ Hai (26-10-2026)": luôn in, luôn là dòng cuối; afterPt = khoảng cách tới bảng
-    "date":    { "size": 13, "align": "center", "afterPt": 3 }
+    "date":    { "size": 13, "align": "center", "afterPt": 3 },
+    // Bản 4 (30-10-2026): Label in liền trước địa chỉ / dòng liên hệ (như label trước name), mặc định trống
+    "addrLabel":    { "show": true, "size": 10, "value": "" },
+    "contactLabel": { "show": true, "size": 10, "value": "" },
+    // Thứ tự dòng phần đầu (Thứ, ngày luôn cuối): "name" | "addr" | "contact" | id dòng tự do
+    "order": ["name", "addr", "contact"],
+    // Dòng tự do (tối đa 5 mỗi phần): { id, label, text (như label), align, afterPt }.
+    // extra: phần đầu (theo order); footer: dưới bảng, theo thứ tự mảng. id: [a-z0-9]{1,12}
+    "extra": [],
+    "footer": []
   },
   "stations": {
     "mode": "all",                            // "all" = mọi đài quay trong ngày | "pick" = theo bảng dưới
@@ -330,6 +339,11 @@ nhóm có chú thích tiếng Việt, để **nhập lại ra y nguyên** (có t
   `_UNDERLINE`; từng hàng `ROW_8` … `ROW_1`, `ROW_DB` + `_SIZE_PT`, `_NUMBER_COLOR`, `_LABEL_COLOR`,
   `_BOLD`, `_ITALIC`, `_UNDERLINE`, `_FILL` (để trống = theo mức chung / không tô nền).
   `COLOR_TEXT/ACCENT/BORDER/NUMBER` của bản 2 vẫn nhận, chuyển như cài đặt JSON bản 2.
+- Dòng (`CONF_VERSION=4`): `AGENT_ADDRESS_LABEL`, `AGENT_CONTACT_LABEL` (+ `_SHOW`, `_SIZE`, `_COLOR`,
+  `_BOLD`, `_ITALIC`); `HEADER_ORDER` (`name, addr, contact, line1 … line5`); `HEADER_LINES` /
+  `FOOTER_LINES` = số dòng tự do, có khoá này thì danh sách thay hẳn theo file; mỗi dòng
+  `HEADER_LINE_<n>_LABEL` / `_TEXT` (+ `_SHOW`, `_SIZE`, `_COLOR`, `_BOLD`, `_ITALIC`), `_ALIGN`,
+  `_AFTER_PT` (tương tự `FOOTER_LINE_<n>_…`). Dòng `n` không có trong số dòng → báo bỏ qua.
 - Khoá kiểu cũ của bản bash vẫn nhận: `STATIONS` / `STATIONS_T2…` (đài được in, giữ thứ tự web),
   `CARD_GAP_CM` (cả hai chiều), `ALIGN_TEXT`, `ALIGN_NUMBER`, `NUMBER_PAD_RIGHT_CM`,
   `AGENT_PHONES` (`|` ngăn cách → "DĐ: …  DĐ: …"; có `AGENT_CONTACT` thì không dùng, như bản bash),
@@ -526,9 +540,12 @@ lùi được mọi thay đổi từ lần lưu gần nhất; gõ liền tay tro
 đang mở trong máy.
 
 **Tab Phiếu** là trình sửa một phiếu kiểu Figma, ba cột:
-- Trái (248 px) **Thành phần**: cây Phiếu › Đầu phiếu (Dòng 1: Label + Text; Dòng 2, Dòng 3: Text;
-  Thứ, ngày có ổ khoá) › Bảng kết quả (Hàng tiêu đề, Tên giải, Số kết quả, Hàng giải › Giải Tám … ĐB,
-thu gọn sẵn). Mũi tên thu gọn / mở
+- Trái (248 px) **Thành phần**: cây Phiếu › Đầu phiếu (Dòng 1 … n theo thứ tự in, mỗi dòng là nhóm
+  Label + Text; Thứ, ngày có ổ khoá, luôn cuối) › Bảng kết quả (Hàng tiêu đề, Tên giải, Số kết quả, Hàng giải › Giải Tám … ĐB,
+thu gọn sẵn) › Cuối phiếu (Dòng cuối 1 … n). Dấu + ở Đầu phiếu / Cuối phiếu thêm dòng tự do (tối
+  đa 5 mỗi phần); kéo nhóm Dòng (hoặc Alt + ↑/↓) đổi thứ tự trong phần của nó, kể cả dòng có sẵn;
+  Delete hoặc nút thùng rác ở cột phải xoá dòng tự do. Thêm / xoá / đổi thứ tự / ẩn hiện luôn là một
+  bước hoàn tác riêng. Mũi tên thu gọn / mở
   nhóm; con mắt ẩn / hiện dòng (nhóm Dòng 1 đổi cả Label lẫn Text). Bàn phím như cây thư mục:
   ↑/↓, ←/→ (thu gọn / mở, lên nhóm cha), Home / End, Esc bỏ chọn.
 - Giữa: phiếu xem trước (như cũ: kết quả tải gần nhất hoặc mẫu 26-10-2026, phóng to / thu nhỏ). Rê
@@ -539,7 +556,9 @@ thu gọn sẵn). Mũi tên thu gọn / mở
 - Phải (300 px) **Thuộc tính** của phần đang chọn, đầu cột có biểu tượng, tên, loại, con mắt (dòng):
   - Không chọn gì: Khổ giấy mặc định, Khoảng cách giữa các phiếu, Vị trí cụm phiếu trên trang.
   - Phiếu: Rộng / Cao (Auto như cũ, gợi ý mức tối đa), Font chữ (font đã cài, "máy chưa cài").
-  - Dòng 1–3: Căn lề + khoảng cách tới dòng dưới (của cả dòng). Label / Text: ô Chữ + Cỡ chữ.
+  - Nhóm Dòng: Căn lề + khoảng cách tới dòng dưới (của cả dòng). Label / Text: ô Chữ + Cỡ chữ.
+  - Đầu phiếu / Cuối phiếu: nút "Thêm dòng tự do". Dòng cuối phiếu trừ vào chiều cao bảng (§6.4:
+    `tableH = cardH − headerH − footerH − 160`); Word: đoạn văn ngay sau bảng của mỗi phiếu.
   - Thứ, ngày: chữ tự động (không sửa), Cỡ, Căn lề, khoảng cách tới bảng.
   - Hàng tiêu đề: tên viết tắt các đài trên phiếu đang xem, "Sửa cả 21 đài…" mở đủ danh sách.
   - Mọi đoạn chữ (Label, Text, Thứ ngày): thêm Đậm / Nghiêng và ô màu.
@@ -555,9 +574,6 @@ thu gọn sẵn). Mũi tên thu gọn / mở
 **Tab Chung**: cột thẻ rộng tối đa 904 px ở giữa, thu gọn / mở rộng được như cũ: **Đài cần in**
 (không còn mục tên viết tắt), **Máy in**, **Lưu file** (thêm **Định dạng mặc định** PDF / Word / Cả
 hai ở đầu thẻ).
-
-Đợt sau (đã duyệt, chưa làm): Label cho Dòng 2, Dòng 3; dòng tự do (nhóm Label + Text) ở đầu và
-cuối phiếu, tối đa 5 dòng mỗi phần, kéo đổi thứ tự.
 
 **Thanh cuối**, ba phần không xuống dòng: trái là nhóm **Cấu hình** với hai nút biểu tượng nhập /
 xuất file .conf (xuất đúng những gì đang hiện, kể cả thay đổi chưa lưu) + phiên bản; giữa là
