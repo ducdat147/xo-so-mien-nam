@@ -17,7 +17,16 @@ describe('defaultSettings', () => {
       paper: 'A4', format: 'pdf', cardWidthCm: 8, cardGapXCm: 0.6, cardGapYCm: 0.6, cardAlign: 'left',
       numberFontPt: null, font: 'Times New Roman'
     })
-    expect(Object.values(s.print.colors)).toEqual(['000000', '000000', '000000', '000000'])
+    expect(s.print).toMatchObject({
+      borderColor: '000000',
+      headRow: { labelSize: 12, color: '000000', bold: true },
+      prizeLabels: { size: 12, dbSize: 14, color: '000000', bold: true },
+      numbers: { color: '000000', bold: true, italic: false, underline: false }
+    })
+    // ĐB to hơn cỡ số chung 1 pt, các hàng khác theo mức chung
+    expect(s.print.rows.db).toEqual({ sizeDeltaPt: 1, numberColor: null, labelColor: null, bold: null, italic: null, underline: null, fill: null })
+    expect(s.print.rows['4'].sizeDeltaPt).toBe(0)
+    expect(s.header.name).toMatchObject({ color: '000000', bold: true, italic: false })
     expect(s.print.textCell).toEqual({ padXCm: 0.05, padYCm: 0.05, alignX: 'center', alignY: 'top' })
     expect(s.print.numberCell).toEqual({ padXCm: 0.3, padYCm: 0.05, alignX: 'right', alignY: 'center' })
     // Thông tin để trống, đại lý tự nhập; căn giữa, khoảng cách như phiếu bản bash
@@ -26,7 +35,7 @@ describe('defaultSettings', () => {
     expect([s.header.name, s.header.addr, s.header.contact, s.header.date].map((h) => [h.align, h.afterPt])).toEqual([
       ['center', 3], ['center', 0], ['center', 0], ['center', 3]
     ])
-    expect(s.version).toBe(2)
+    expect(s.version).toBe(3)
     expect(s.stations.mode).toBe('all')
     expect(s.stations.byWeekday[6].map((p) => p.slug)).toEqual(['tp-hcm', 'long-an', 'binh-phuoc', 'hau-giang'])
     expect(Object.keys(s.stations.byWeekday)).toHaveLength(7)
@@ -46,9 +55,9 @@ describe('normalizeSettings', () => {
       header: { name: { size: 99, value: 'A', align: 'giữa', afterPt: 99 }, addr: { size: 7.3, afterPt: '1,3' }, date: { align: 'right' } },
       print: { paper: 'B5', cardGapXCm: -1, numberFontPt: '13,5', colors: { text: '#ff0000', border: 'xanh' } }
     })
-    expect(s.header.name).toEqual({ show: true, size: 30, value: 'A', align: 'center', afterPt: 20 })
+    expect(s.header.name).toEqual({ show: true, size: 30, value: 'A', align: 'center', afterPt: 20, color: 'FF0000', bold: true, italic: false })
     expect(s.header.addr).toMatchObject({ size: 7.5, afterPt: 1.5 })
-    expect(s.header.date).toEqual({ size: 13, align: 'right', afterPt: 3 })
+    expect(s.header.date).toEqual({ size: 13, align: 'right', afterPt: 3, color: 'FF0000', bold: true, italic: false })
     expect(s.print.paper).toBe('A4')
     expect(s.print.cardGapXCm).toBe(0)
     expect(s.print.numberFontPt).toBe(13.5)
@@ -66,8 +75,9 @@ describe('normalizeSettings', () => {
     expect(importConf('CARD_GAP_CM=0,3').settings.print).toMatchObject({ cardGapXCm: 0.3, cardGapYCm: 0.3 })
     expect(normalizeSettings({ print: { cardHeightCm: '12,5' } }).print.cardHeightCm).toBe(12.5)
     expect(normalizeSettings({ print: { cardHeightCm: 1 } }).print.cardHeightCm).toBe(4)
-    expect(s.print.colors.text).toBe('FF0000')
-    expect(s.print.colors.border).toBe('000000')
+    // màu chung của bản 2: chữ đầu phiếu đỏ, viền sai mã thì về đen
+    expect(s.header.label.color).toBe('FF0000')
+    expect(s.print.borderColor).toBe('000000')
   })
 
   it('cài đặt bản 1: thêm "ĐC: " vào địa chỉ, ghép các số thành một dòng, bỏ ẩn dòng thứ ngày', () => {
@@ -81,10 +91,11 @@ describe('normalizeSettings', () => {
       }
     }
     const s = normalizeSettings(old)
-    expect(s.version).toBe(2)
-    expect(s.header.addr).toEqual({ show: true, size: 9, value: 'ĐC: Chợ Lớn', align: 'center', afterPt: 0 })
-    expect(s.header.contact).toEqual({ show: false, size: 11, value: 'DĐ: 0909 000 111  DĐ: 0283 333 444', align: 'center', afterPt: 0 })
-    expect(s.header.date).toEqual({ size: 12, align: 'center', afterPt: 3 })
+    const ink = { color: '000000', bold: true, italic: false }
+    expect(s.version).toBe(3)
+    expect(s.header.addr).toEqual({ show: true, size: 9, value: 'ĐC: Chợ Lớn', align: 'center', afterPt: 0, ...ink })
+    expect(s.header.contact).toEqual({ show: false, size: 11, value: 'DĐ: 0909 000 111  DĐ: 0283 333 444', align: 'center', afterPt: 0, ...ink })
+    expect(s.header.date).toEqual({ size: 12, align: 'center', afterPt: 3, ...ink })
     expect(s.header.name).toMatchObject({ value: 'MINH', align: 'center', afterPt: 3 })
     // địa chỉ rỗng giữ rỗng; chuẩn hoá lại lần nữa không thêm "ĐC: " lần hai
     expect(normalizeSettings({ header: { addr: { value: ' ' } } }).header.addr.value).toBe('')
@@ -92,6 +103,32 @@ describe('normalizeSettings', () => {
     // bản 2: chữ giữ nguyên văn
     expect(normalizeSettings({ version: 2, header: { addr: { value: 'Chợ Lớn' }, contact: { value: '0909' } } }).header)
       .toMatchObject({ addr: { value: 'Chợ Lớn' }, contact: { value: '0909' } })
+  })
+
+  it('bản 2: 4 màu chung đổ sang từng phần, số ĐB lấy màu nhấn; chuẩn hoá lại giữ nguyên', () => {
+    const s = normalizeSettings({
+      version: 2,
+      print: { colors: { text: '1F2A6B', accent: 'E00000', border: '7F8FB5', number: '000000' } }
+    })
+    expect([s.header.label, s.header.name, s.header.addr, s.header.contact, s.header.date].map((h) => h.color))
+      .toEqual(Array(5).fill('1F2A6B'))
+    expect(s.print).toMatchObject({
+      borderColor: '7F8FB5', headRow: { color: 'E00000' }, prizeLabels: { color: 'E00000' }, numbers: { color: '000000' }
+    })
+    expect(s.print.rows.db.numberColor).toBe('E00000')
+    expect(s.print.rows['1'].numberColor).toBeNull()
+    expect(normalizeSettings(s)).toEqual(s)
+    // màu nhấn trùng màu số: ĐB theo màu số chung
+    expect(normalizeSettings({ version: 2, print: { colors: { accent: '123456', number: '123456' } } }).print.rows.db.numberColor).toBeNull()
+  })
+
+  it('hàng giải: kẹp cỡ cộng thêm, màu / kiểu chữ trống là theo mức chung', () => {
+    const s = normalizeSettings({
+      print: { rows: { db: { sizeDeltaPt: 9, numberColor: '#c00000', fill: 'xám', bold: false }, 4: { sizeDeltaPt: '-1,5', labelColor: '' } } }
+    })
+    expect(s.print.rows.db).toEqual({ sizeDeltaPt: 6, numberColor: 'C00000', labelColor: null, bold: false, italic: null, underline: null, fill: null })
+    expect(s.print.rows['4']).toMatchObject({ sizeDeltaPt: -1.5, labelColor: null })
+    expect(normalizeSettings(s)).toEqual(s)
   })
 
   it('font: nhận mọi tên font máy, bỏ ký tự phá CSS/HTML, rỗng thì về mặc định', () => {
@@ -202,7 +239,9 @@ describe('importConf', () => {
     expect(s.print).toMatchObject({
       paper: 'A5', format: 'both', cardWidthCm: 8.5, numberFontPt: 13, cardAlign: 'center', font: 'Arial'
     })
-    expect(s.print.colors.accent).toBe('E00000')
+    // COLOR_ACCENT của bản 2: "Giải", tên đài, tên giải và số ĐB
+    expect(s.print).toMatchObject({ headRow: { color: 'E00000' }, prizeLabels: { color: 'E00000' } })
+    expect(s.print.rows.db.numberColor).toBe('E00000')
     expect(s.output.dir).toBe(defaultSettings().output.dir)
   })
 
@@ -236,7 +275,7 @@ describe('importConf', () => {
     expect(v2.settings.header.addr.value).toBe('Số 5, Q.1')
     expect(v2.settings.header.contact).toMatchObject({ value: 'ĐT: 0283 333 444', align: 'right', size: 11 })
     expect(v2.settings.header.name).toMatchObject({ align: 'left', afterPt: 4.5 })
-    expect(v2.settings.header.date).toEqual({ size: 13, align: 'right', afterPt: 3 })
+    expect(v2.settings.header.date).toEqual({ size: 13, align: 'right', afterPt: 3, color: '000000', bold: true, italic: false })
     // nhãn theo dòng tên; khoảng cách quá lớn báo bỏ qua; DATE_LINE_SHOW (dòng luôn in) bỏ qua không báo
     expect(v2.ignored).toEqual(['DATE_LINE_AFTER_PT', 'AGENT_LABEL_ALIGN'])
     // file kiểu cũ: địa chỉ thêm "ĐC: ", rỗng thì giữ rỗng
@@ -259,10 +298,12 @@ describe('exportConf', () => {
   function custom() {
     const s = defaultSettings()
     s.header.label.value = 'Đại lý vé số:'
-    s.header.name = { show: true, size: 16, value: 'MINH "NGỌC" & CON # 2', align: 'left', afterPt: 4.5 }
-    s.header.addr = { show: false, size: 9.5, value: 'ĐC: 12 Trần Hưng Đạo, Q.5', align: 'right', afterPt: 0 }
-    s.header.contact = { show: true, size: 11, value: 'DĐ: 0909 000 111  DĐ: 0283 333 444', align: 'center', afterPt: 1 }
-    s.header.date = { size: 12, align: 'right', afterPt: 6 }
+    const ink = { color: '1F2A6B', bold: true, italic: false }
+    s.header.label = { ...s.header.label, color: '7F1D1D', bold: false, italic: true }
+    s.header.name = { show: true, size: 16, value: 'MINH "NGỌC" & CON # 2', align: 'left', afterPt: 4.5, ...ink }
+    s.header.addr = { show: false, size: 9.5, value: 'ĐC: 12 Trần Hưng Đạo, Q.5', align: 'right', afterPt: 0, ...ink }
+    s.header.contact = { show: true, size: 11, value: 'DĐ: 0909 000 111  DĐ: 0283 333 444', align: 'center', afterPt: 1, ...ink }
+    s.header.date = { size: 12, align: 'right', afterPt: 6, ...ink, italic: true }
     s.stations.mode = 'pick'
     s.stations.byWeekday[1] = [{ slug: 'ca-mau', on: true }, { slug: 'tp-hcm', on: false }, { slug: 'dong-thap', on: true }]
     s.stations.byWeekday[6] = [{ slug: 'hau-giang', on: true }, { slug: 'tp-hcm', on: true }, { slug: 'long-an', on: false }, { slug: 'binh-phuoc', on: true }]
@@ -273,7 +314,15 @@ describe('exportConf', () => {
       cardAlign: 'center', numberFontPt: 13.5, font: 'Arial',
       textCell: { padXCm: 0.15, padYCm: 0.1, alignX: 'left', alignY: 'center' },
       numberCell: { padXCm: 0.25, padYCm: 0.05, alignX: 'center', alignY: 'bottom' },
-      colors: { text: '1F2A6B', accent: 'E00000', border: '7F8FB5', number: '000000' }
+      borderColor: '7F8FB5',
+      headRow: { labelSize: 11, color: 'E00000', bold: false },
+      prizeLabels: { size: 11.5, dbSize: 15, color: 'E00000', bold: true },
+      numbers: { color: '000000', bold: true, italic: true, underline: false },
+      rows: {
+        ...s.print.rows,
+        db: { sizeDeltaPt: 2, numberColor: 'C00000', labelColor: 'C00000', bold: null, italic: false, underline: true, fill: 'F3F4F6' },
+        4: { ...s.print.rows['4'], sizeDeltaPt: -0.5, bold: false }
+      }
     }
     s.printer = { deviceName: 'Canon LBP2900', silent: true, copies: 3 }
     s.output.dir = 'D:\\Xo so\\phieu'
@@ -318,7 +367,7 @@ describe('exportConf', () => {
     expect(text).toContain('STATIONS_ORDER_T2="ca-mau, -tp-hcm, dong-thap"')
     expect(text).toContain('CARD_WIDTH_CM=auto')
     expect(text).toContain('NUMBER_ALIGN=bottom-center')
-    expect(text).toContain('CONF_VERSION=2')
+    expect(text).toContain('CONF_VERSION=3')
     expect(text).toContain('AGENT_CONTACT="DĐ: 0909 000 111  DĐ: 0283 333 444"')
     expect(text).toContain('DATE_LINE_AFTER_PT=6')
     expect(text).not.toMatch(/AGENT_PHONES|DATE_LINE_SHOW/)

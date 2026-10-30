@@ -14,6 +14,7 @@ const ICONS: Record<IconKey, () => ReactElement> = {
 const parentOf = (id: NodeId): NodeId | null => {
   if (id === 'card') return null
   if (id.includes('.')) return id.slice(0, id.indexOf('.')) as NodeId
+  if (id.startsWith('prize-')) return 'rows'
   if (id.startsWith('line') || id === 'date') return 'head'
   if (id === 'head' || id === 'table') return 'card'
   return 'table'
@@ -27,7 +28,8 @@ export function LayerTree(props: DraftProps & {
   onHover: (id: NodeId | null) => void
 }) {
   const { draft, setDraft, selected, hovered, onSelect, onHover } = props
-  const [collapsed, setCollapsed] = useState<Set<NodeId>>(() => new Set())
+  // Hàng giải thu gọn sẵn cho cây gọn; chọn một hàng trên phiếu thì tự mở
+  const [collapsed, setCollapsed] = useState<Set<NodeId>>(() => new Set<NodeId>(['rows']))
   const rows = visibleNodes(collapsed)
   const refs = useRef(new Map<NodeId, HTMLDivElement>())
   const focusSel = useRef(false)

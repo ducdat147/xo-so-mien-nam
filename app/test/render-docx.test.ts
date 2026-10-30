@@ -21,17 +21,32 @@ function customSettings(): Settings {
   return importConf(readFileSync(join(GOLDEN, 'custom.conf'), 'utf8'), base).settings
 }
 
+/** Màu, kiểu chữ riêng từng phần và từng hàng giải (cài đặt bản 3, không có ở bản bash). */
+function styledSettings(): Settings {
+  const s = customSettings()
+  s.header.label = { ...s.header.label, bold: false, italic: true }
+  s.header.date.color = '7F1D1D'
+  s.print.headRow = { labelSize: 11, color: '1D4ED8', bold: false }
+  s.print.prizeLabels = { ...s.print.prizeLabels, size: 11, dbSize: 15 }
+  s.print.numbers = { ...s.print.numbers, italic: true }
+  s.print.rows.db = { sizeDeltaPt: 2, numberColor: 'C00000', labelColor: 'C00000', bold: null, italic: false, underline: true, fill: 'F3F4F6' }
+  s.print.rows['4'] = { ...s.print.rows['4'], sizeDeltaPt: -1, bold: false }
+  return s
+}
+
 // test/golden/*.document.xml: bản chụp file Word do bản bash cũ (build_docx, nay đã bỏ) sinh ra.
 // App phải ra giống hệt từng ký tự. Cố ý đổi bố cục thì cập nhật bản chụp: `make golden`
 // (UPDATE_GOLDEN=1) rồi xem kỹ diff trước khi commit.
-describe('render-docx giống hệt bản chụp chuẩn (từ bản bash cũ)', () => {
+describe('render-docx giống hệt bản chụp chuẩn (từ bản bash cũ, styled-A4 từ app)', () => {
   const cases: [string, () => Settings, typeof day26, typeof D26, Paper][] = [
     ['default-A4', agentSettings, day26, D26, 'A4'],
     ['default-A5', agentSettings, day26, D26, 'A5'],
     ['default-A6', agentSettings, day26, D26, 'A6'],
     ['default-A4-4dai', agentSettings, day24, D24, 'A4'],
     ['custom-A4', customSettings, day26, D26, 'A4'],
-    ['custom-A6', customSettings, day26, D26, 'A6']
+    ['custom-A6', customSettings, day26, D26, 'A6'],
+    // bản chụp của app (bản bash không có màu, kiểu chữ riêng từng phần)
+    ['styled-A4', styledSettings, day26, D26, 'A4']
   ]
   for (const [name, settings, day, date, paper] of cases) {
     it(name, () => {
@@ -40,6 +55,18 @@ describe('render-docx giống hệt bản chụp chuẩn (từ bản bash cũ)',
       expect(documentXml(layout)).toBe(golden(name))
     })
   }
+})
+
+describe('màu, kiểu chữ riêng từng phần', () => {
+  it('ô hàng ĐB có w:shd giữa tcW và vAlign; run có đúng thứ tự b, i, color, sz, u', () => {
+    const { layout } = buildSheet(styledSettings(), day26, { date: D26, paper: 'A4', blank: false })
+    const xml = documentXml(layout)
+    expect(xml).toMatch(/<w:tcW w:w="\d+" w:type="dxa"\/><w:shd w:val="clear" w:color="auto" w:fill="F3F4F6"\/><w:vAlign/)
+    expect(xml).toMatch(/<w:rPr><w:b\/><w:bCs\/><w:color w:val="C00000"\/><w:sz w:val="\d+"\/><w:szCs w:val="\d+"\/><w:u w:val="single"\/><\/w:rPr><w:t xml:space="preserve">472899/)
+    // hàng Tư bỏ đậm, số nghiêng theo mức chung
+    expect(xml).toMatch(/<w:rPr><w:i\/><w:iCs\/><w:color w:val="000000"\/><w:sz w:val="\d+"\/><w:szCs w:val="\d+"\/><\/w:rPr><w:t xml:space="preserve">78899/)
+    expect(XMLValidator.validate(xml)).toBe(true)
+  })
 })
 
 async function unzip(bytes: Uint8Array) {

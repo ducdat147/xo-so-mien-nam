@@ -248,11 +248,12 @@ mặc định của nhãn, địa chỉ, DĐ là **10 pt** (chủ dự án chỉ
 
 ```jsonc
 {
-  "version": 2,
+  "version": 3,
   "header": {                               // các dòng đầu phiếu, theo thứ tự hiển thị; chữ in nguyên văn
     // label in chung dòng với name, theo align / afterPt của dòng name
     "label":   { "show": true, "size": 10, "value": "Đại lý vé số:" },
     // align: left | center | right; afterPt: khoảng cách tới dòng dưới (pt, 0–20, bước 0,5)
+    // mỗi dòng (kể cả label, date) có thêm "color": "000000", "bold": true, "italic": false
     "name":    { "show": true, "size": 14, "value": "ĐỨC QUYẾT", "align": "center", "afterPt": 3 },
     "addr":    { "show": true, "size": 10, "value": "ĐC: Chợ Tapao - Đ.Kho - T.Linh – B.Thuận", "align": "center", "afterPt": 0 },
     "contact": { "show": true, "size": 10, "value": "DĐ: 01212 019 343  DĐ: 0983 019 343", "align": "center", "afterPt": 0 },
@@ -281,7 +282,16 @@ mặc định của nhãn, địa chỉ, DĐ là **10 pt** (chủ dự án chỉ
     "numberCell": { "padXCm": 0.3,  "padYCm": 0.05, "alignX": "right",  "alignY": "center" },
     "numberFontPt": null,                     // null = tự chọn cỡ lớn nhất vừa phiếu
     "font": "Times New Roman",                // tên họ font bất kỳ đã cài trên máy
-    "colors": { "text": "000000", "accent": "000000", "border": "000000", "number": "000000" }
+    // Màu (hex, không #) và kiểu chữ từng phần — bản 3 (30-10-2026). Bản 2 có "colors" { text, accent,
+    // border, number } chung: text → các dòng đầu phiếu, accent → headRow, prizeLabels và số ĐB
+    // (rows.db.numberColor, nếu khác màu số), number → numbers, border → borderColor.
+    "borderColor": "000000",
+    "headRow": { "labelSize": 12, "color": "000000", "bold": true },     // "Giải" + tên đài (cỡ tên đài tự động)
+    "prizeLabels": { "size": 12, "dbSize": 14, "color": "000000", "bold": true },
+    "numbers": { "color": "000000", "bold": true, "italic": false, "underline": false },
+    // Từng hàng giải 8 … 1, db: sizeDeltaPt cộng vào cỡ số chung (−6…6, bước 0,5; ĐB mặc định +1);
+    // màu / kiểu chữ null = theo numbers / prizeLabels; fill null = không tô nền
+    "rows": { "db": { "sizeDeltaPt": 1, "numberColor": null, "labelColor": null, "bold": null, "italic": null, "underline": null, "fill": null } }
   },
   "output": { "dir": "~/Documents/XSMN" },
   "printer": {                                // CHƯA DÙNG ở bản đầu (UI hiện "Sắp có")
@@ -313,7 +323,13 @@ nhóm có chú thích tiếng Việt, để **nhập lại ra y nguyên** (có t
 - Bản in: `PAPER`, `OUTPUT_FORMAT`, `CARD_WIDTH_CM` / `CARD_HEIGHT_CM` (số hoặc `auto`),
   `CARD_GAP_X_CM`, `CARD_GAP_Y_CM`, `CARD_ALIGN`, `FONT`, `NUMBER_FONT_PT` (số hoặc `auto`),
   `TEXT_PAD_X_CM`, `TEXT_PAD_Y_CM`, `TEXT_ALIGN`, `NUMBER_PAD_X_CM`, `NUMBER_PAD_Y_CM`,
-  `NUMBER_ALIGN` (`<dọc>-<ngang>`, ví dụ `center-right`), `COLOR_TEXT/ACCENT/BORDER/NUMBER`.
+  `NUMBER_ALIGN` (`<dọc>-<ngang>`, ví dụ `center-right`).
+- Màu, kiểu chữ (`CONF_VERSION=3`): mỗi dòng đầu phiếu thêm `_COLOR` (hex), `_BOLD`, `_ITALIC` (1/0),
+  kể cả `AGENT_LABEL_` và `DATE_LINE_`; `BORDER_COLOR`; `HEAD_ROW_SIZE` / `_COLOR` / `_BOLD`;
+  `PRIZE_LABEL_SIZE` / `_DB_SIZE` / `_COLOR` / `_BOLD`; `NUMBER_COLOR` / `_BOLD` / `_ITALIC` /
+  `_UNDERLINE`; từng hàng `ROW_8` … `ROW_1`, `ROW_DB` + `_SIZE_PT`, `_NUMBER_COLOR`, `_LABEL_COLOR`,
+  `_BOLD`, `_ITALIC`, `_UNDERLINE`, `_FILL` (để trống = theo mức chung / không tô nền).
+  `COLOR_TEXT/ACCENT/BORDER/NUMBER` của bản 2 vẫn nhận, chuyển như cài đặt JSON bản 2.
 - Khoá kiểu cũ của bản bash vẫn nhận: `STATIONS` / `STATIONS_T2…` (đài được in, giữ thứ tự web),
   `CARD_GAP_CM` (cả hai chiều), `ALIGN_TEXT`, `ALIGN_NUMBER`, `NUMBER_PAD_RIGHT_CM`,
   `AGENT_PHONES` (`|` ngăn cách → "DĐ: …  DĐ: …"; có `AGENT_CONTACT` thì không dùng, như bản bash),
@@ -378,7 +394,7 @@ Dòng dài tự xuống dòng: ước lượng số dòng = ⌈Σ(len × pt × 0
 ### 6.3 Bảng
 
 - Cột "Giải": `labW = cardW × 16%`, kẹp trong [600, 900]. Cột đài: `stW = (cardW − labW)/n`.
-- Viền đơn 0,75 pt (OOXML `sz=6`) màu `colors.border`, cả trong lẫn ngoài.
+- Viền đơn 0,75 pt (OOXML `sz=6`) màu `borderColor`, cả trong lẫn ngoài.
   Lề trong ô: trên 30, trái 28, dưới 20, phải 28.
 - Chữ: "Giải" 12 pt; tên giải (Tám, Bảy, Sáu, Năm, Tư, Ba, Nhì, Nhất) 12 pt, cách sau 40;
   "ĐB" 14 pt; tên đài 12 pt nếu stW ≥ 1200, 10 pt nếu ≥ 900, còn lại 8 pt. Căn theo
@@ -422,7 +438,11 @@ tràn trang. `numberFontPt` lớn quá → hạ xuống cỡ lớn nhất vừa 
 
 ### 6.5 Màu & font
 
-Mặc định toàn bộ **màu đen**. Font phiếu là font đã cài trên máy, cùng một tên cho HTML
+Mặc định toàn bộ **màu đen**, chữ đậm. Màu, đậm / nghiêng / gạch chân, nền hàng lấy từ cài đặt
+từng phần (§5); Word: `w:b`, `w:i`, `w:color`, `w:sz`, `w:u` theo đúng thứ tự trong `w:rPr`, nền ô
+`w:shd` (giữa `w:tcW` và `w:vAlign`). Cỡ số từng hàng = cỡ chung + `sizeDeltaPt` (§6.4: vòng lặp tính
+mỗi hàng bằng cỡ chung + phần cộng; sau đó hàng cộng dương kẹp ≤ maxW − 1 như ĐB, mặc định ra đúng
+như bản bash). Font phiếu là font đã cài trên máy, cùng một tên cho HTML
 (`'<tên>', serif|sans-serif|monospace`, họ dự phòng đoán theo tên) và Word (`w:rFonts`).
 `printToPDF` nhúng font máy vào PDF. Máy không có font đó thì trình duyệt / Word dùng font thay
 thế; màn Cài đặt ghi "(máy chưa cài)" và cảnh báo.
@@ -507,7 +527,8 @@ lùi được mọi thay đổi từ lần lưu gần nhất; gõ liền tay tro
 
 **Tab Phiếu** là trình sửa một phiếu kiểu Figma, ba cột:
 - Trái (248 px) **Thành phần**: cây Phiếu › Đầu phiếu (Dòng 1: Label + Text; Dòng 2, Dòng 3: Text;
-  Thứ, ngày có ổ khoá) › Bảng kết quả (Hàng tiêu đề, Tên giải, Số kết quả). Mũi tên thu gọn / mở
+  Thứ, ngày có ổ khoá) › Bảng kết quả (Hàng tiêu đề, Tên giải, Số kết quả, Hàng giải › Giải Tám … ĐB,
+thu gọn sẵn). Mũi tên thu gọn / mở
   nhóm; con mắt ẩn / hiện dòng (nhóm Dòng 1 đổi cả Label lẫn Text). Bàn phím như cây thư mục:
   ↑/↓, ←/→ (thu gọn / mở, lên nhóm cha), Home / End, Esc bỏ chọn.
 - Giữa: phiếu xem trước (như cũ: kết quả tải gần nhất hoặc mẫu 26-10-2026, phóng to / thu nhỏ). Rê
@@ -521,16 +542,22 @@ lùi được mọi thay đổi từ lần lưu gần nhất; gõ liền tay tro
   - Dòng 1–3: Căn lề + khoảng cách tới dòng dưới (của cả dòng). Label / Text: ô Chữ + Cỡ chữ.
   - Thứ, ngày: chữ tự động (không sửa), Cỡ, Căn lề, khoảng cách tới bảng.
   - Hàng tiêu đề: tên viết tắt các đài trên phiếu đang xem, "Sửa cả 21 đài…" mở đủ danh sách.
-  - Tên giải / Số kết quả: ô căn 3×3 + padding ngang / dọc; Số kết quả thêm Cỡ số (Auto như cũ).
+  - Mọi đoạn chữ (Label, Text, Thứ ngày): thêm Đậm / Nghiêng và ô màu.
+  - Bảng kết quả: màu viền. Hàng tiêu đề: cỡ chữ "Giải", Đậm, màu.
+  - Tên giải: cỡ, cỡ "ĐB", Đậm, màu + ô căn 3×3 và padding. Số kết quả: Cỡ số (Auto như cũ),
+    Đậm / Nghiêng / Gạch chân, màu + ô căn 3×3 và padding.
+  - Hàng giải › Giải Tám … ĐB: cỡ số cộng thêm (ô gọn "Thêm", pt, âm được), màu số, màu tên giải
+    (ô màu có lựa chọn "Chung" = theo mức chung), Đậm / Nghiêng / Gạch chân, nền hàng ("Không"),
+    nút "Đặt lại hàng này".
+  - Ô màu: mẫu + mã hex; bảng chọn 8 màu đậm, 7 màu nhạt, ô mã, "Màu khác…" (bảng màu hệ thống).
   Cửa sổ hẹp (≤ 1100 px) hai cột bên còn 200 / 264 px.
 
 **Tab Chung**: cột thẻ rộng tối đa 904 px ở giữa, thu gọn / mở rộng được như cũ: **Đài cần in**
 (không còn mục tên viết tắt), **Máy in**, **Lưu file** (thêm **Định dạng mặc định** PDF / Word / Cả
 hai ở đầu thẻ).
 
-Đợt sau (đã duyệt, chưa làm): màu riêng từng thành phần; từng hàng giải (cỡ ± pt, màu số, màu tên
-giải, đậm / nghiêng / gạch chân, nền); cỡ chữ "Giải" / tên giải; Label cho Dòng 2, Dòng 3; dòng tự
-do (nhóm Label + Text) ở đầu và cuối phiếu, tối đa 5 dòng mỗi phần, kéo đổi thứ tự.
+Đợt sau (đã duyệt, chưa làm): Label cho Dòng 2, Dòng 3; dòng tự do (nhóm Label + Text) ở đầu và
+cuối phiếu, tối đa 5 dòng mỗi phần, kéo đổi thứ tự.
 
 **Thanh cuối**, ba phần không xuống dòng: trái là nhóm **Cấu hình** với hai nút biểu tượng nhập /
 xuất file .conf (xuất đúng những gì đang hiện, kể cả thay đổi chưa lưu) + phiên bản; giữa là

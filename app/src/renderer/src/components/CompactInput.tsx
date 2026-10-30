@@ -48,6 +48,11 @@ const PREFIX = {
   width: { node: 'Rộng', axis: 'x' },
   height: { node: 'Cao', axis: 'y' },
   size: { node: 'Cỡ', axis: 'x' },
+  /** Cỡ chữ "Giải" / "ĐB" (trình sửa phiếu). */
+  'size-giai': { node: 'Giải', axis: 'x' },
+  'size-db': { node: 'ĐB', axis: 'x' },
+  /** Cỡ số cộng thêm của một hàng giải (âm được). */
+  delta: { node: 'Thêm', axis: 'x' },
   copies: { node: <Copies />, axis: 'x' }
 } as const
 

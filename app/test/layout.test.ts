@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { cellBox, computeLayout, maxCardSizeCm, PAGE_MARGIN, PAPER_SPECS, SAFETY, type LayoutInput } from '../src/core/layout'
 import { PAPERS, type HeaderSettings, type Settings } from '../src/core/settings'
-import { agentSettings } from './helpers'
+import { agentSettings, D26, HTML_26 } from './helpers'
+import { parseResults } from '../src/core/parse'
+import { buildSheet } from '../src/core/sheet'
 import { emptyPrizes, type Prizes } from '../src/core/stations'
 
 const FULL: Prizes = {
@@ -82,7 +84,9 @@ describe('computeLayout — số đo chuẩn (khớp bản bash cũ)', () => {
     expect(l.table.text).toEqual({ alignX: 'center', alignY: 'top', indentLeft: 0, indentRight: 0, padTop: 0, padBottom: 0 })
     expect(l.header.height).toBe(1200)
     expect(l.header.lines.map((x) => [x.lineH, x.after, x.lines])).toEqual([[380, 60, 1], [180, 0, 1], [180, 0, 1], [340, 60, 1]])
-    expect(l.header.lines[2].runs).toEqual([{ text: 'DĐ: 01212 019 343  DĐ: 0983 019 343', size: 15 }])
+    expect(l.header.lines[2].runs).toEqual([
+      { text: 'DĐ: 01212 019 343  DĐ: 0983 019 343', size: 15, color: '000000', bold: true, italic: false }
+    ])
   })
 
   it('A4, 4 đài (Thứ Bảy): số 12 pt, bị giới hạn bề ngang', () => {
@@ -307,5 +311,41 @@ describe('computeLayout — bề rộng font máy (fontScale)', () => {
     expect(Math.ceil(30 * 1.42) * wide.table.dbSize).toBeLessThanOrEqual(wide.table.stW - 76 - wide.table.number.indentLeft - wide.table.number.indentRight)
     const lines = (l: typeof base) => l.header.lines.reduce((n, x) => n + x.lines, 0)
     expect(lines(wide)).toBeGreaterThan(lines(base))
+  })
+})
+
+describe('cỡ số từng hàng giải', () => {
+  const day26 = parseResults(HTML_26, D26)
+  const at = (edit: (s: ReturnType<typeof agentSettings>) => void) => {
+    const s = agentSettings()
+    edit(s)
+    return buildSheet(s, day26, { date: D26, paper: 'A4', blank: false }).layout.table
+  }
+
+  it('mặc định: ĐB +1 pt, hàng khác theo cỡ chung', () => {
+    const t = at(() => {})
+    expect([t.numberSize, t.dbSize]).toEqual([27, 29])
+    expect(t.prizeRows.db).toMatchObject({ size: 29, line: 319 })
+    expect(t.prizeRows['4']).toMatchObject({ size: 27, line: 297 })
+  })
+
+  it('ĐB không cộng thêm thì bằng cỡ chung; hàng Tư +1 pt thì cỡ chung tự nhỏ lại cho vừa phiếu', () => {
+    const flat = at((s) => { s.print.rows.db.sizeDeltaPt = 0 })
+    expect(flat.dbSize).toBe(flat.numberSize)
+    // phiếu thấp: chiều cao giới hạn cỡ số (phiếu mặc định bị giới hạn bởi bề ngang ô)
+    const low = at((s) => { s.print.cardHeightCm = 10 })
+    const big4 = at((s) => { s.print.cardHeightCm = 10; s.print.rows['4'].sizeDeltaPt = 1 })
+    expect(big4.numberSize).toBeLessThan(low.numberSize)
+    expect(big4.prizeRows['4'].size).toBe(big4.numberSize + 2)
+    expect(big4.rows.reduce((sum, r) => sum + r.height, 0)).toBeLessThanOrEqual(big4.available)
+  })
+
+  it('hàng nhỏ hơn cỡ chung; màu, kiểu chữ của hàng ghi đè mức chung', () => {
+    const t = at((s) => {
+      s.print.rows['6'] = { ...s.print.rows['6'], sizeDeltaPt: -2, numberColor: 'C00000', italic: true }
+      s.print.numbers.underline = true
+    })
+    expect(t.prizeRows['6']).toMatchObject({ size: t.numberSize - 4, numberColor: 'C00000', italic: true, underline: true, bold: true })
+    expect(t.prizeRows['5']).toMatchObject({ numberColor: '000000', italic: false, underline: true })
   })
 })

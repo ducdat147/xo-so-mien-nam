@@ -3,14 +3,17 @@
 // (riêng từng máy). exportConf ghi đủ phần đó để nhập lại được y nguyên; importConf nhận cả khoá kiểu cũ
 // của bản bash đã bỏ (STATIONS, STATIONS_T2…, CARD_GAP_CM, ALIGN_TEXT, ALIGN_NUMBER, NUMBER_PAD_RIGHT_CM,
 // AGENT_PHONES). File chưa có CONF_VERSION=2 là kiểu cũ: phiếu tự thêm "ĐC: " trước AGENT_ADDRESS.
+// CONF_VERSION=3 thêm màu, kiểu chữ từng phần (khoá COLOR_TEXT/ACCENT/NUMBER/BORDER của bản 2 vẫn nhận).
 
 import { WEEKDAY_SHORT } from './dates'
 import {
-  ALIGNS, FORMATS, HEADER_AFTER_MAX, HEADER_SIZE_MAX, HEADER_SIZE_MIN, legacyAddrLine, legacyContactLine, normalizeColor,
-  normalizeFontName, normalizeSettings, PAPERS, SETTINGS_VERSION, toNumber, VALIGNS, defaultSettings,
-  type Align, type CellStyle, type Colors, type HeaderLineText, type OutputFormat, type Paper, type Settings, type VAlign
+  ALIGNS, FORMATS, HEADER_AFTER_MAX, HEADER_SIZE_MAX, HEADER_SIZE_MIN, LABEL_SIZE_MAX, LABEL_SIZE_MIN, legacyAddrLine,
+  legacyContactLine, normalizeColor, normalizeFontName, normalizeSettings, PAPERS, ROW_DELTA_MAX, ROW_DELTA_MIN,
+  SETTINGS_VERSION, toNumber, VALIGNS, defaultSettings,
+  type Align, type CellStyle, type HeaderLineText, type OutputFormat, type Paper, type PrizeRowStyle, type Settings,
+  type TextStyle, type VAlign
 } from './settings'
-import { findStation, scheduleFor, STATIONS } from './stations'
+import { findStation, PRIZES, scheduleFor, STATIONS, type PrizeKey } from './stations'
 
 /** Đọc file KEY=VALUE. Khoá sau ghi đè khoá trước. Giá trị trong ngoặc kép giữ nguyên, kể cả dấu #. */
 export function parseConf(text: string): Map<string, string> {
@@ -69,6 +72,8 @@ const TEXT_KEYS: Record<string, TextKey> = {
 }
 /** Tiền tố khoá _SHOW / _SIZE / _ALIGN / _AFTER_PT của từng dòng. AGENT_PHONES_ là tên cũ của AGENT_CONTACT_. */
 const LINE_PREFIX: Record<string, TextKey | 'date'> = { ...TEXT_KEYS, AGENT_PHONES: 'contact', DATE_LINE: 'date' }
+/** ROW_8 … ROW_1, ROW_DB: chỉnh riêng từng hàng giải. */
+const ROW_NAME = (k: PrizeKey) => `ROW_${k.toUpperCase()}`
 
 export function importConf(text: string, base: Settings = defaultSettings()): ConfImport {
   const s = normalizeSettings(JSON.parse(JSON.stringify(base)))
@@ -98,6 +103,17 @@ export function importConf(text: string, base: Settings = defaultSettings()): Co
     apply(b)
     ok()
   }
+  const setColor = (k: string, v: string, apply: (c: string) => void) => {
+    const c = normalizeColor(v, '')
+    if (!c) return bad(k)
+    apply(c)
+    ok()
+  }
+  /** Rỗng = theo mức chung (null). */
+  const setOptColor = (k: string, v: string, apply: (c: string | null) => void) => (v.trim() ? setColor(k, v, apply) : (apply(null), ok()))
+  const setOptBool = (k: string, v: string, apply: (b: boolean | null) => void) => (v.trim() ? setBool(k, v, apply) : (apply(null), ok()))
+  /** COLOR_ACCENT của bản 2: số ĐB in màu này; trùng màu số thì để ĐB theo màu số. */
+  let legacyAccent: string | null = null
   const setAlign = (k: string, v: string, apply: (a: Align) => void) => {
     const a = v.toLowerCase() as Align
     if (!ALIGNS.includes(a)) return bad(k)
@@ -138,11 +154,16 @@ export function importConf(text: string, base: Settings = defaultSettings()): Co
       ok()
       continue
     }
-    const lineKey = key.match(/^(AGENT_LABEL|AGENT_NAME|AGENT_ADDRESS|AGENT_CONTACT|AGENT_PHONES|DATE_LINE)_(SHOW|SIZE|ALIGN|AFTER_PT)$/)
+    const lineKey = key.match(/^(AGENT_LABEL|AGENT_NAME|AGENT_ADDRESS|AGENT_CONTACT|AGENT_PHONES|DATE_LINE)_(SHOW|SIZE|ALIGN|AFTER_PT|COLOR|BOLD|ITALIC)$/)
     if (lineKey) {
       const field = LINE_PREFIX[lineKey[1]]
       const prop = lineKey[2]
-      if (prop === 'SIZE') {
+      const st: TextStyle = s.header[field]
+      if (prop === 'COLOR') {
+        setColor(key, v, (c) => { st.color = c })
+      } else if (prop === 'BOLD' || prop === 'ITALIC') {
+        setBool(key, v, (b) => { if (prop === 'BOLD') st.bold = b; else st.italic = b })
+      } else if (prop === 'SIZE') {
         setNum(key, v, HEADER_SIZE_MIN, HEADER_SIZE_MAX, (n) => { s.header[field].size = n })
       } else if (field === 'date') {
         // Dòng thứ, ngày luôn in: DATE_LINE_SHOW của file cũ bỏ qua
@@ -158,6 +179,19 @@ export function importConf(text: string, base: Settings = defaultSettings()): Co
         if (prop === 'ALIGN') setAlign(key, v, (a) => { h.align = a })
         else setNum(key, v, 0, HEADER_AFTER_MAX, (n) => { h.afterPt = n })
       }
+      continue
+    }
+    const rowKey = key.match(/^ROW_(8|7|6|5|4|3|2|1|DB)_(SIZE_PT|NUMBER_COLOR|LABEL_COLOR|BOLD|ITALIC|UNDERLINE|FILL)$/)
+    if (rowKey) {
+      const r: PrizeRowStyle = s.print.rows[rowKey[1].toLowerCase() as PrizeKey]
+      const prop = rowKey[2]
+      if (prop === 'SIZE_PT') setNum(key, v, ROW_DELTA_MIN, ROW_DELTA_MAX, (n) => { r.sizeDeltaPt = n })
+      else if (prop === 'NUMBER_COLOR') setOptColor(key, v, (c) => { r.numberColor = c })
+      else if (prop === 'LABEL_COLOR') setOptColor(key, v, (c) => { r.labelColor = c })
+      else if (prop === 'FILL') setOptColor(key, v, (c) => { r.fill = c })
+      else if (prop === 'BOLD') setOptBool(key, v, (b) => { r.bold = b })
+      else if (prop === 'ITALIC') setOptBool(key, v, (b) => { r.italic = b })
+      else setOptBool(key, v, (b) => { r.underline = b })
       continue
     }
     // Từ đây trở xuống: giá trị rỗng = chưa khai báo (như bản bash cũ)
@@ -220,13 +254,26 @@ export function importConf(text: string, base: Settings = defaultSettings()): Co
       case 'ALIGN_TEXT': setAlign(key, v, (a) => { s.print.textCell.alignX = a }); break
       case 'ALIGN_NUMBER': setAlign(key, v, (a) => { s.print.numberCell.alignX = a }); break
       case 'NUMBER_PAD_RIGHT_CM': setNum(key, v, 0, 2, (n) => { s.print.numberCell.padXCm = n }); break
-      case 'COLOR_TEXT': case 'COLOR_ACCENT': case 'COLOR_BORDER': case 'COLOR_NUMBER': {
-        const c = normalizeColor(v, '')
-        if (!c) { bad(key); break }
-        s.print.colors[key.slice(6).toLowerCase() as keyof Colors] = c
-        ok()
+      case 'BORDER_COLOR': case 'COLOR_BORDER': setColor(key, v, (c) => { s.print.borderColor = c }); break
+      case 'HEAD_ROW_SIZE': setNum(key, v, LABEL_SIZE_MIN, LABEL_SIZE_MAX, (n) => { s.print.headRow.labelSize = n }); break
+      case 'HEAD_ROW_COLOR': setColor(key, v, (c) => { s.print.headRow.color = c }); break
+      case 'HEAD_ROW_BOLD': setBool(key, v, (b) => { s.print.headRow.bold = b }); break
+      case 'PRIZE_LABEL_SIZE': setNum(key, v, LABEL_SIZE_MIN, LABEL_SIZE_MAX, (n) => { s.print.prizeLabels.size = n }); break
+      case 'PRIZE_LABEL_DB_SIZE': setNum(key, v, LABEL_SIZE_MIN, LABEL_SIZE_MAX, (n) => { s.print.prizeLabels.dbSize = n }); break
+      case 'PRIZE_LABEL_COLOR': setColor(key, v, (c) => { s.print.prizeLabels.color = c }); break
+      case 'PRIZE_LABEL_BOLD': setBool(key, v, (b) => { s.print.prizeLabels.bold = b }); break
+      case 'NUMBER_COLOR': setColor(key, v, (c) => { s.print.numbers.color = c }); break
+      case 'NUMBER_BOLD': setBool(key, v, (b) => { s.print.numbers.bold = b }); break
+      case 'NUMBER_ITALIC': setBool(key, v, (b) => { s.print.numbers.italic = b }); break
+      case 'NUMBER_UNDERLINE': setBool(key, v, (b) => { s.print.numbers.underline = b }); break
+      // Màu chung của bản 2
+      case 'COLOR_TEXT':
+        setColor(key, v, (c) => { for (const k of ['label', 'name', 'addr', 'contact', 'date'] as const) s.header[k].color = c })
         break
-      }
+      case 'COLOR_ACCENT':
+        setColor(key, v, (c) => { s.print.headRow.color = c; s.print.prizeLabels.color = c; legacyAccent = c })
+        break
+      case 'COLOR_NUMBER': setColor(key, v, (c) => { s.print.numbers.color = c }); break
       // Máy in, thư mục lưu, tự lấy lại (PRINTER, OUTPUT_DIR…) là cài đặt riêng từng máy: không nhập
       default: bad(key)
     }
@@ -246,6 +293,7 @@ export function importConf(text: string, base: Settings = defaultSettings()): Co
     }
   }
   if (mode) s.stations.mode = mode
+  if (legacyAccent) s.print.rows.db.numberColor = legacyAccent === s.print.numbers.color ? null : legacyAccent
 
   return { settings: normalizeSettings(s), imported, ignored }
 }
@@ -259,13 +307,18 @@ const bool = (b: boolean) => (b ? '1' : '0')
 /** Thứ Hai trước, Chủ Nhật cuối như lịch đọc. */
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 
-/** Một dòng đầu phiếu: chữ, ẩn/hiện, cỡ chữ, căn lề, khoảng cách tới dòng dưới. */
+const optBool = (b: boolean | null) => (b === null ? '' : bool(b))
+/** Màu, đậm, nghiêng của một đoạn chữ. */
+const inkKeys = (k: string, t: TextStyle) => [`${k}_COLOR=${t.color}`, `${k}_BOLD=${bool(t.bold)}`, `${k}_ITALIC=${bool(t.italic)}`]
+
+/** Một dòng đầu phiếu: chữ, ẩn/hiện, cỡ chữ, căn lề, khoảng cách tới dòng dưới, màu, kiểu chữ. */
 const lineKeys = (k: string, l: HeaderLineText) => [
   `${k}=${q(l.value)}`,
   `${k}_SHOW=${bool(l.show)}`,
   `${k}_SIZE=${num(l.size)}`,
   `${k}_ALIGN=${l.align}`,
-  `${k}_AFTER_PT=${num(l.afterPt)}`
+  `${k}_AFTER_PT=${num(l.afterPt)}`,
+  ...inkKeys(k, l)
 ]
 
 /** Ghi thông tin đầu phiếu, đài, bố cục bản in ra .conf (nhập lại bằng importConf được y nguyên). */
@@ -278,6 +331,7 @@ export function exportConf(settings: Settings, meta: { appName: string; version:
     '# Nhập lại: Cài đặt → Cấu hình → Nhập.  Dòng bắt đầu bằng # là chú thích.',
     '# Không gồm máy in, thư mục lưu file (cài riêng trên từng máy).',
     '# _SHOW: 1 = hiện, 0 = ẩn. _SIZE: cỡ chữ (pt). Số đo tính bằng cm, dùng dấu chấm hoặc phẩy.',
+    '# _COLOR: mã màu hex, không có #. _BOLD / _ITALIC / _UNDERLINE: 1 = bật, 0 = tắt.',
     '# Định dạng file. Không có dòng này là file kiểu cũ: phiếu tự thêm "ĐC: " trước địa chỉ.',
     `CONF_VERSION=${SETTINGS_VERSION}`,
     '',
@@ -287,6 +341,7 @@ export function exportConf(settings: Settings, meta: { appName: string; version:
     `AGENT_LABEL=${q(h.label.value)}`,
     `AGENT_LABEL_SHOW=${bool(h.label.show)}`,
     `AGENT_LABEL_SIZE=${num(h.label.size)}`,
+    ...inkKeys('AGENT_LABEL', h.label),
     ...lineKeys('AGENT_NAME', h.name),
     ...lineKeys('AGENT_ADDRESS', h.addr),
     '# Dòng liên hệ (số điện thoại)',
@@ -295,6 +350,7 @@ export function exportConf(settings: Settings, meta: { appName: string; version:
     `DATE_LINE_SIZE=${num(h.date.size)}`,
     `DATE_LINE_ALIGN=${h.date.align}`,
     `DATE_LINE_AFTER_PT=${num(h.date.afterPt)}`,
+    ...inkKeys('DATE_LINE', h.date),
     '',
     '# ---------- Đài cần in',
     '# STATIONS_MODE: all = mọi đài quay trong ngày; pick = theo danh sách từng thứ dưới đây',
@@ -330,11 +386,35 @@ export function exportConf(settings: Settings, meta: { appName: string; version:
     `NUMBER_PAD_X_CM=${num(p.numberCell.padXCm)}`,
     `NUMBER_PAD_Y_CM=${num(p.numberCell.padYCm)}`,
     `NUMBER_ALIGN=${p.numberCell.alignY}-${p.numberCell.alignX}`,
-    '# Màu (mã hex, không có #): chữ đầu phiếu, tên giải/tên đài/ĐB, đường kẻ, các số',
-    `COLOR_TEXT=${p.colors.text}`,
-    `COLOR_ACCENT=${p.colors.accent}`,
-    `COLOR_BORDER=${p.colors.border}`,
-    `COLOR_NUMBER=${p.colors.number}`,
+    '# Bảng kết quả: màu viền; hàng tiêu đề ("Giải", tên đài; HEAD_ROW_SIZE là cỡ chữ "Giải");',
+    '# tên giải (PRIZE_LABEL_DB_SIZE: cỡ chữ "ĐB"); số kết quả (chung cho mọi hàng)',
+    `BORDER_COLOR=${p.borderColor}`,
+    `HEAD_ROW_SIZE=${num(p.headRow.labelSize)}`,
+    `HEAD_ROW_COLOR=${p.headRow.color}`,
+    `HEAD_ROW_BOLD=${bool(p.headRow.bold)}`,
+    `PRIZE_LABEL_SIZE=${num(p.prizeLabels.size)}`,
+    `PRIZE_LABEL_DB_SIZE=${num(p.prizeLabels.dbSize)}`,
+    `PRIZE_LABEL_COLOR=${p.prizeLabels.color}`,
+    `PRIZE_LABEL_BOLD=${bool(p.prizeLabels.bold)}`,
+    `NUMBER_COLOR=${p.numbers.color}`,
+    `NUMBER_BOLD=${bool(p.numbers.bold)}`,
+    `NUMBER_ITALIC=${bool(p.numbers.italic)}`,
+    `NUMBER_UNDERLINE=${bool(p.numbers.underline)}`,
+    '# Từng hàng giải (ROW_8 … ROW_1, ROW_DB). _SIZE_PT: cỡ số cộng thêm so với cỡ chung (pt, âm được).',
+    '# Để trống = theo mức chung ở trên; _FILL để trống = không tô nền.',
+    ...PRIZES.flatMap((k) => {
+      const r = p.rows[k]
+      const n = ROW_NAME(k)
+      return [
+        `${n}_SIZE_PT=${num(r.sizeDeltaPt)}`,
+        `${n}_NUMBER_COLOR=${r.numberColor ?? ''}`,
+        `${n}_LABEL_COLOR=${r.labelColor ?? ''}`,
+        `${n}_BOLD=${optBool(r.bold)}`,
+        `${n}_ITALIC=${optBool(r.italic)}`,
+        `${n}_UNDERLINE=${optBool(r.underline)}`,
+        `${n}_FILL=${r.fill ?? ''}`
+      ]
+    }),
     ''
   ]
   return lines.join('\n')

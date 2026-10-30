@@ -1,4 +1,5 @@
 import type { Settings } from '../../../../../core/settings'
+import { PRIZE_LABEL, PRIZES, type PrizeKey } from '../../../../../core/stations'
 
 /**
  * Các phần của phiếu trong trình sửa (tab Phiếu ở màn Cài đặt). Đầu phiếu gồm các nhóm Dòng 1–3,
@@ -20,6 +21,12 @@ export type NodeId =
   | 'hdr'
   | 'labels'
   | 'numbers'
+  | 'rows'
+  | `prize-${PrizeKey}`
+
+export const prizeNode = (k: PrizeKey): NodeId => `prize-${k}`
+/** Hàng giải của phần trong cây (null nếu không phải một hàng giải). */
+export const prizeOf = (id: NodeId | null): PrizeKey | null => (id?.startsWith('prize-') ? (id.slice(6) as PrizeKey) : null)
 
 export type IconKey = 'receipt' | 'panelTop' | 'line' | 'type' | 'calendar' | 'table' | 'rows' | 'tag' | 'hash'
 
@@ -47,7 +54,11 @@ export const TREE: TreeNode = {
       id: 'table', name: 'Bảng kết quả', icon: 'table', children: [
         { id: 'hdr', name: 'Hàng tiêu đề', icon: 'rows' },
         { id: 'labels', name: 'Tên giải', icon: 'tag' },
-        { id: 'numbers', name: 'Số kết quả', icon: 'hash' }
+        { id: 'numbers', name: 'Số kết quả', icon: 'hash' },
+        {
+          id: 'rows', name: 'Hàng giải', icon: 'rows',
+          children: PRIZES.map((k) => ({ id: prizeNode(k), name: `Giải ${PRIZE_LABEL[k]}`, icon: 'rows' as const }))
+        }
       ]
     }
   ]
@@ -96,7 +107,9 @@ const PART: Record<NodeId, string> = {
   table: 'table',
   hdr: 'hdr',
   labels: 'labels',
-  numbers: 'numbers'
+  numbers: 'numbers',
+  rows: 'row-*',
+  ...(Object.fromEntries(PRIZES.map((k) => [prizeNode(k), `row-${k}`])) as Record<`prize-${PrizeKey}`, string>)
 }
 
 export const partOf = (id: NodeId | null): string | null => (id ? PART[id] : null)

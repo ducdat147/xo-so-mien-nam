@@ -3,7 +3,7 @@
 
 import JSZip from 'jszip'
 import type { CellBox, SheetLayout } from './layout'
-import { CELL_MARGIN, BORDER_SZ, DB_LABEL_SIZE, LABEL_AFTER, LABEL_SIZE, SPACER_H } from './layout'
+import { CELL_MARGIN, BORDER_SZ, LABEL_AFTER, SPACER_H } from './layout'
 import { PRIZES } from './stations'
 import type { Align, VAlign } from './settings'
 
@@ -14,9 +14,19 @@ export function xmlEscape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function run(text: string, color: string, size: number): string {
+interface RunStyle {
+  bold: boolean
+  italic?: boolean
+  underline?: boolean
+}
+
+/** Thứ tự trong w:rPr theo OOXML: b, bCs, i, iCs, color, sz, szCs, u. */
+function run(text: string, color: string, size: number, st: RunStyle = { bold: true }): string {
+  const b = st.bold ? '<w:b/><w:bCs/>' : ''
+  const i = st.italic ? '<w:i/><w:iCs/>' : ''
+  const u = st.underline ? '<w:u w:val="single"/>' : ''
   return (
-    `<w:r><w:rPr><w:b/><w:bCs/><w:color w:val="${color}"/><w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr>` +
+    `<w:r><w:rPr>${b}${i}<w:color w:val="${color}"/><w:sz w:val="${size}"/><w:szCs w:val="${size}"/>${u}</w:rPr>` +
     `<w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`
   )
 }
@@ -51,8 +61,10 @@ function cellParas(box: CellBox, items: CellPara[], alwaysInd: boolean, vertical
     .join('')
 }
 
-function cell(width: number, vAlign: VAlign, paras: string): string {
-  return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/><w:vAlign w:val="${vAlign}"/></w:tcPr>${paras}</w:tc>`
+/** fill: màu nền ô (hex); w:shd đứng giữa tcW và vAlign theo OOXML. */
+function cell(width: number, vAlign: VAlign, paras: string, fill: string | null = null): string {
+  const shd = fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : ''
+  return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${shd}<w:vAlign w:val="${vAlign}"/></w:tcPr>${paras}</w:tc>`
 }
 
 const spacerPara = (h: number) =>
@@ -63,13 +75,13 @@ function headerXml(l: SheetLayout): string {
   const ind = left > 0 || right > 0 ? `<w:ind w:left="${left}" w:right="${right}"/>` : ''
   if (!l.header.lines.length) return spacerPara(SPACER_H)
   return l.header.lines
-    .map((line) => para(line.align, line.after, line.runs.map((r) => run(r.text, l.colors.text, r.size)).join(''), line.lineH, ind))
+    .map((line) => para(line.align, line.after, line.runs.map((r) => run(r.text, r.color, r.size, r)).join(''), line.lineH, ind))
     .join('')
 }
 
 function tableXml(l: SheetLayout): string {
   const t = l.table
-  const { accent, border, number } = l.colors
+  const border = l.borderColor
   const bd = `w:val="single" w:sz="${BORDER_SZ}" w:space="0" w:color="${border}"`
   const m = CELL_MARGIN
   let x =
@@ -86,24 +98,20 @@ function tableXml(l: SheetLayout): string {
   const [hdr, ...prizeRows] = t.rows
   // Hàng tiêu đề (Giải, tên đài) luôn giữa ô theo chiều dọc; chỉ lấy căn ngang + padding ngang của chữ
   const head = (runs: string) => cellParas(t.text, [{ runs, after: 0 }], false, false)
-  let cells = cell(t.labW, 'center', head(run(hdr.label, accent, LABEL_SIZE)))
-  for (const st of l.stations) cells += cell(t.stW, 'center', head(run(st.short, accent, t.stationSize)))
+  const hs = { bold: t.head.bold }
+  let cells = cell(t.labW, 'center', head(run(hdr.label, t.head.color, t.head.labelSize, hs)))
+  for (const st of l.stations) cells += cell(t.stW, 'center', head(run(st.short, t.head.color, t.stationSize, hs)))
   x += tr(hdr.height, cells)
 
   PRIZES.forEach((k, i) => {
-    const isDb = k === 'db'
+    const r = t.prizeRows[k]
     const lab: CellPara[] = [
-      isDb
-        ? { runs: run(prizeRows[i].label, accent, DB_LABEL_SIZE), after: 0 }
-        : { runs: run(prizeRows[i].label, accent, LABEL_SIZE), after: LABEL_AFTER }
+      { runs: run(prizeRows[i].label, r.labelColor, r.labelSize, { bold: r.labelBold }), after: k === 'db' ? 0 : LABEL_AFTER }
     ]
-    let row = cell(t.labW, t.text.alignY, cellParas(t.text, lab, false))
+    let row = cell(t.labW, t.text.alignY, cellParas(t.text, lab, false), r.fill)
     for (const st of l.stations) {
-      const color = isDb ? accent : number
-      const size = isDb ? t.dbSize : t.numberSize
-      const lh = isDb ? t.dbLine : t.numberLine
-      const nums = st.prizes[k].map((n) => ({ runs: run(n, color, size), after: 0, exact: lh }))
-      row += cell(t.stW, t.number.alignY, cellParas(t.number, nums, true))
+      const nums = st.prizes[k].map((n) => ({ runs: run(n, r.numberColor, r.size, r), after: 0, exact: r.line }))
+      row += cell(t.stW, t.number.alignY, cellParas(t.number, nums, true), r.fill)
     }
     x += tr(prizeRows[i].height, row)
   })

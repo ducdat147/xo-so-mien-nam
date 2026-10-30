@@ -1,7 +1,7 @@
 // Cài đặt (SPEC §5): mặc định, chuẩn hoá dữ liệu đọc từ JSON, nhập xsmn.conf của bản bash.
 // Không đụng tới file: đọc/ghi nằm ở settings-file.ts để renderer import được module này.
 
-import { SCHEDULE, findStation, scheduleFor } from './stations'
+import { PRIZES, SCHEDULE, findStation, scheduleFor, type PrizeKey } from './stations'
 import { WEEKDAY_SHORT } from './dates'
 
 export type Paper = 'A4' | 'A5' | 'A6'
@@ -16,8 +16,15 @@ export const VALIGNS: readonly VAlign[] = ['top', 'center', 'bottom']
 /** Font phiếu mặc định (số đo của bản bash tính theo font này). */
 export const DEFAULT_FONT = 'Times New Roman'
 
+/** Màu (hex, không có #) và kiểu chữ của một đoạn chữ trên phiếu. */
+export interface TextStyle {
+  color: string
+  bold: boolean
+  italic: boolean
+}
+
 /** Chữ đầu phiếu: in đúng như đã gõ (phiếu không tự thêm "ĐC: " hay "DĐ: "). */
-export interface HeaderText {
+export interface HeaderText extends TextStyle {
   show: boolean
   size: number
   value: string
@@ -41,7 +48,7 @@ export interface HeaderSettings {
   /** Dòng liên hệ (số điện thoại), một dòng. */
   contact: HeaderLineText
   /** Dòng thứ, ngày: luôn in, luôn là dòng cuối ngay trên bảng. */
-  date: HeaderLineStyle
+  date: HeaderLineStyle & TextStyle
 }
 
 export interface StationPick {
@@ -57,11 +64,41 @@ export interface StationSettings {
   shortNames: Record<string, string>
 }
 
-export interface Colors {
-  text: string
-  accent: string
-  border: string
-  number: string
+/** Hàng tiêu đề của bảng: chữ "Giải" và tên đài (cỡ tên đài tự chọn theo bề rộng cột). */
+export interface HeadRowStyle {
+  /** Cỡ chữ "Giải" (pt). */
+  labelSize: number
+  color: string
+  bold: boolean
+}
+
+/** Tên giải (Tám … Nhất, ĐB) ở cột đầu bảng. */
+export interface PrizeLabelStyle {
+  size: number
+  dbSize: number
+  color: string
+  bold: boolean
+}
+
+/** Số kết quả, chung cho mọi hàng giải. */
+export interface NumberStyle {
+  color: string
+  bold: boolean
+  italic: boolean
+  underline: boolean
+}
+
+/** Chỉnh riêng một hàng giải; null = theo Số kết quả / Tên giải. */
+export interface PrizeRowStyle {
+  /** Cỡ số cộng thêm so với cỡ chung (pt, có thể âm). */
+  sizeDeltaPt: number
+  numberColor: string | null
+  labelColor: string | null
+  bold: boolean | null
+  italic: boolean | null
+  underline: boolean | null
+  /** Màu nền cả hàng; null = không tô. */
+  fill: string | null
 }
 
 export interface PrintSettings {
@@ -84,7 +121,12 @@ export interface PrintSettings {
   numberFontPt: number | null
   /** Tên họ font đã cài trên máy (font hệ thống, không nhúng sẵn). */
   font: string
-  colors: Colors
+  /** Màu viền bảng (hex). */
+  borderColor: string
+  headRow: HeadRowStyle
+  prizeLabels: PrizeLabelStyle
+  numbers: NumberStyle
+  rows: Record<PrizeKey, PrizeRowStyle>
 }
 
 /**
@@ -107,8 +149,10 @@ export interface PrinterSettings {
 /**
  * 2: chữ đầu phiếu in nguyên văn, liên hệ là một dòng (30-10-2026). Bản 1 tự thêm "ĐC: " trước
  * địa chỉ và in mỗi số thành "DĐ: …"; normalizeSettings chuyển sang để phiếu in ra như cũ.
+ * 3: màu, kiểu chữ riêng từng phần và từng hàng giải (30-10-2026). Bản 2 có 4 màu chung
+ * (print.colors); normalizeSettings đổ sang từng phần, số ĐB lấy màu nhấn như cũ.
  */
-export const SETTINGS_VERSION = 2
+export const SETTINGS_VERSION = 3
 
 export interface Settings {
   version: typeof SETTINGS_VERSION
@@ -124,6 +168,18 @@ export const HEADER_SIZE_MIN = 5
 export const HEADER_SIZE_MAX = 30
 /** Khoảng cách tối đa dưới một dòng đầu phiếu (pt). */
 export const HEADER_AFTER_MAX = 20
+/** Cỡ chữ "Giải", tên giải (pt). */
+export const LABEL_SIZE_MIN = 6
+export const LABEL_SIZE_MAX = 24
+/** Cỡ số cộng thêm của một hàng giải (pt). */
+export const ROW_DELTA_MIN = -6
+export const ROW_DELTA_MAX = 6
+export const BLACK = '000000'
+
+/** Hàng giải chưa chỉnh gì; ĐB to hơn cỡ chung 1 pt như phiếu bản bash. */
+export const defaultRow = (k: PrizeKey): PrizeRowStyle => ({
+  sizeDeltaPt: k === 'db' ? 1 : 0, numberColor: null, labelColor: null, bold: null, italic: null, underline: null, fill: null
+})
 
 export function defaultByWeekday(): Record<string, StationPick[]> {
   const out: Record<string, StationPick[]> = {}
@@ -131,16 +187,21 @@ export function defaultByWeekday(): Record<string, StationPick[]> {
   return out
 }
 
+/** Chữ đen, đậm: mặc định của mọi chữ trên phiếu. */
+const ink = (): TextStyle => ({ color: BLACK, bold: true, italic: false })
+
+const defaultRows = () => Object.fromEntries(PRIZES.map((k) => [k, defaultRow(k)])) as Record<PrizeKey, PrizeRowStyle>
+
 export function defaultSettings(): Settings {
   return {
     version: SETTINGS_VERSION,
     header: {
       // Thông tin để trống: mỗi đại lý tự nhập ở màn Cài đặt. Căn lề, khoảng cách như phiếu bản bash.
-      label: { show: true, size: 10, value: '' },
-      name: { show: true, size: 14, value: '', align: 'center', afterPt: 3 },
-      addr: { show: true, size: 10, value: '', align: 'center', afterPt: 0 },
-      contact: { show: true, size: 10, value: '', align: 'center', afterPt: 0 },
-      date: { size: 13, align: 'center', afterPt: 3 }
+      label: { show: true, size: 10, value: '', ...ink() },
+      name: { show: true, size: 14, value: '', align: 'center', afterPt: 3, ...ink() },
+      addr: { show: true, size: 10, value: '', align: 'center', afterPt: 0, ...ink() },
+      contact: { show: true, size: 10, value: '', align: 'center', afterPt: 0, ...ink() },
+      date: { size: 13, align: 'center', afterPt: 3, ...ink() }
     },
     stations: { mode: 'all', byWeekday: defaultByWeekday(), shortNames: {} },
     print: {
@@ -155,7 +216,11 @@ export function defaultSettings(): Settings {
       numberCell: { padXCm: 0.3, padYCm: 0.05, alignX: 'right', alignY: 'center' },
       numberFontPt: null,
       font: DEFAULT_FONT,
-      colors: { text: '000000', accent: '000000', border: '000000', number: '000000' }
+      borderColor: BLACK,
+      headRow: { labelSize: 12, color: BLACK, bold: true },
+      prizeLabels: { size: 12, dbSize: 14, color: BLACK, bold: true },
+      numbers: { color: BLACK, bold: true, italic: false, underline: false },
+      rows: defaultRows()
     },
     output: { dir: '~/Documents/XSMN' },
     printer: { deviceName: null, silent: false, copies: 1 },
@@ -197,13 +262,21 @@ export function normalizeColor(v: unknown, def: string): string {
   return /^[0-9a-fA-F]{6}$/.test(s) ? s.toUpperCase() : def
 }
 
+/** Màu có thể bỏ trống (theo mức chung): null, "" hoặc không hợp lệ → null. */
+const optColor = (v: unknown): string | null => (typeof v === 'string' && normalizeColor(v, '')) || null
+const optBool = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null)
+
+function textStyle(o: Obj, def: TextStyle): TextStyle {
+  return { color: normalizeColor(o.color, def.color), bold: bool(o.bold, def.bold), italic: bool(o.italic, def.italic) }
+}
+
 const headerSize = (v: unknown, def: number) => toNumber(v, def, HEADER_SIZE_MIN, HEADER_SIZE_MAX, 0.5)
 
 const headerAfter = (v: unknown, def: number) => toNumber(v, def, 0, HEADER_AFTER_MAX, 0.5)
 
 function headerText(v: unknown, def: HeaderText): HeaderText {
   const o = obj(v)
-  return { show: bool(o.show, def.show), size: headerSize(o.size, def.size), value: str(o.value, def.value) }
+  return { show: bool(o.show, def.show), size: headerSize(o.size, def.size), value: str(o.value, def.value), ...textStyle(o, def) }
 }
 
 function headerStyle(v: unknown, def: HeaderLineStyle): HeaderLineStyle {
@@ -213,6 +286,21 @@ function headerStyle(v: unknown, def: HeaderLineStyle): HeaderLineStyle {
 
 function headerLine(v: unknown, def: HeaderLineText): HeaderLineText {
   return { ...headerText(v, def), ...headerStyle(v, def) }
+}
+
+const labelSize = (v: unknown, def: number) => toNumber(v, def, LABEL_SIZE_MIN, LABEL_SIZE_MAX, 0.5)
+
+function prizeRow(v: unknown, def: PrizeRowStyle): PrizeRowStyle {
+  const o = obj(v)
+  return {
+    sizeDeltaPt: toNumber(o.sizeDeltaPt, def.sizeDeltaPt, ROW_DELTA_MIN, ROW_DELTA_MAX, 0.5),
+    numberColor: 'numberColor' in o ? optColor(o.numberColor) : def.numberColor,
+    labelColor: 'labelColor' in o ? optColor(o.labelColor) : def.labelColor,
+    bold: optBool(o.bold),
+    italic: optBool(o.italic),
+    underline: optBool(o.underline),
+    fill: optColor(o.fill)
+  }
 }
 
 /** Địa chỉ kiểu cũ (phiếu tự thêm "ĐC: ") → chữ in nguyên văn. */
@@ -257,24 +345,37 @@ export function normalizeDayPicks(weekday: number, raw: unknown): StationPick[] 
   return out
 }
 
+const pick = <T extends object, K extends keyof T>(o: T, ...keys: K[]): Pick<T, K> =>
+  Object.fromEntries(keys.map((k) => [k, o[k]])) as Pick<T, K>
+
 export function normalizeSettings(raw: unknown): Settings {
   const def = defaultSettings()
   const r = obj(raw)
 
+  const p = obj(r.print)
+  // Bản 2 trở về trước có 4 màu chung (print.colors): chữ đầu phiếu, chữ nhấn ("Giải", tên đài, tên giải,
+  // số ĐB), viền, số. Dùng làm mặc định cho màu từng phần để phiếu in ra như cũ.
+  const c = obj(p.colors)
+  const legacy = {
+    text: normalizeColor(c.text, BLACK), accent: normalizeColor(c.accent, BLACK),
+    border: normalizeColor(c.border, BLACK), number: normalizeColor(c.number, BLACK)
+  }
+  const withInk = <T extends TextStyle>(d: T): T => ({ ...d, color: legacy.text })
+
   const h = obj(r.header)
   const header: HeaderSettings = {
-    label: headerText(h.label, def.header.label),
-    name: headerLine(h.name, def.header.name),
-    addr: headerLine(h.addr, def.header.addr),
-    contact: headerLine(h.contact, def.header.contact),
+    label: headerText(h.label, withInk(def.header.label)),
+    name: headerLine(h.name, withInk(def.header.name)),
+    addr: headerLine(h.addr, withInk(def.header.addr)),
+    contact: headerLine(h.contact, withInk(def.header.contact)),
     // date.show của bản cũ bỏ qua: dòng thứ, ngày luôn in
-    date: headerStyle(h.date, def.header.date)
+    date: { ...headerStyle(h.date, def.header.date), ...textStyle(obj(h.date), withInk(def.header.date)) }
   }
-  // Bản cũ: thêm "ĐC: " vào địa chỉ, ghép danh sách số thành một dòng, để phiếu in ra như cũ
-  if (typeof r.version !== 'number' || r.version < SETTINGS_VERSION) {
+  // Bản 1: thêm "ĐC: " vào địa chỉ, ghép danh sách số thành một dòng, để phiếu in ra như cũ
+  if (typeof r.version !== 'number' || r.version < 2) {
     header.addr.value = legacyAddrLine(header.addr.value)
     const phones = obj(h.phones)
-    header.contact = { ...headerLine(phones, def.header.contact), value: legacyContactLine(phones.values) }
+    header.contact = { ...headerLine(phones, withInk(def.header.contact)), value: legacyContactLine(phones.values) }
   }
 
   const s = obj(r.stations)
@@ -288,8 +389,6 @@ export function normalizeSettings(raw: unknown): Settings {
     shortNames[slug] = name.trim()
   }
 
-  const p = obj(r.print)
-  const c = obj(p.colors)
   const fontPt = p.numberFontPt
   const cardH = p.cardHeightCm
   const cardWv = p.cardWidthCm
@@ -308,12 +407,26 @@ export function normalizeSettings(raw: unknown): Settings {
     numberCell: cellStyle(p.numberCell, { alignX: p.alignNumber, padXCm: p.numberPadRightCm }, def.print.numberCell),
     numberFontPt: fontPt === null || fontPt === undefined || fontPt === '' ? null : toNumber(fontPt, 13, 6, 30, 0.5),
     font: normalizeFontName(p.font, def.print.font),
-    colors: {
-      text: normalizeColor(c.text, def.print.colors.text),
-      accent: normalizeColor(c.accent, def.print.colors.accent),
-      border: normalizeColor(c.border, def.print.colors.border),
-      number: normalizeColor(c.number, def.print.colors.number)
-    }
+    borderColor: normalizeColor(p.borderColor, legacy.border),
+    headRow: {
+      labelSize: labelSize(obj(p.headRow).labelSize, def.print.headRow.labelSize),
+      ...pick(textStyle(obj(p.headRow), { ...def.print.headRow, italic: false, color: legacy.accent }), 'color', 'bold')
+    },
+    prizeLabels: {
+      size: labelSize(obj(p.prizeLabels).size, def.print.prizeLabels.size),
+      dbSize: labelSize(obj(p.prizeLabels).dbSize, def.print.prizeLabels.dbSize),
+      ...pick(textStyle(obj(p.prizeLabels), { ...def.print.prizeLabels, italic: false, color: legacy.accent }), 'color', 'bold')
+    },
+    numbers: {
+      ...textStyle(obj(p.numbers), { ...def.print.numbers, color: legacy.number }),
+      underline: bool(obj(p.numbers).underline, def.print.numbers.underline)
+    },
+    rows: Object.fromEntries(PRIZES.map((k) => {
+      const d = defaultRow(k)
+      // Bản cũ: số ĐB in màu chữ nhấn
+      if (k === 'db' && legacy.accent !== legacy.number) d.numberColor = legacy.accent
+      return [k, prizeRow(obj(p.rows)[k], d)]
+    })) as Record<PrizeKey, PrizeRowStyle>
   }
 
   const pr = obj(r.printer)

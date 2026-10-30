@@ -2,7 +2,7 @@
 // dùng chung cho render-html (PDF, xem trước, in) và render-docx. Số đo port từ build_docx của
 // bản bash cũ (đã bỏ): giữ nguyên phép chia nguyên của bash để ra đúng từng twip.
 
-import type { Align, CellStyle, Colors, HeaderLineStyle, HeaderSettings, HeaderText, Paper, PrintSettings, VAlign } from './settings'
+import type { Align, CellStyle, HeaderLineStyle, HeaderSettings, HeaderText, Paper, PrintSettings, TextStyle, VAlign } from './settings'
 import { PRIZES, PRIZE_COUNT, PRIZE_LABEL, type PrizeKey, type Prizes } from './stations'
 
 export const TWIPS_PER_CM = 567
@@ -36,6 +36,8 @@ export const DB_LABEL_SIZE = 28
 export const LABEL_AFTER = 40
 /** Nhập đúng số cm làm tròn hiện trên màn hình (vd 13,2) có thể nhỉnh hơn chỗ trống vài twip: bỏ qua. */
 const ROUNDING_TOLERANCE = 28
+/** Cỡ số nhỏ nhất của một hàng giải chỉnh nhỏ hơn cỡ chung (half-point = 5 pt). */
+const MIN_ROW_SIZE = 10
 /** Đoạn đệm khi phần đầu phiếu bị ẩn hết (Word cần một đoạn giữa hai bảng). */
 export const SPACER_H = 20
 
@@ -48,7 +50,7 @@ export const ROW_WEIGHT: Readonly<Record<RowKey, number>> = {
 const WEIGHT_SUM = 168
 
 /** Một đoạn chữ cùng cỡ; size tính bằng half-point như OOXML. */
-export interface Run {
+export interface Run extends TextStyle {
   text: string
   size: number
 }
@@ -165,6 +167,10 @@ export interface SheetLayout {
     /** Chiều cao một dòng số / dòng ĐB (exact). */
     numberLine: number
     dbLine: number
+    /** Cỡ, màu, kiểu chữ của từng hàng giải (đã gộp chỉnh riêng của hàng với mức chung). */
+    prizeRows: Record<PrizeKey, PrizeRowLayout>
+    /** Hàng tiêu đề: cỡ chữ "Giải" (half-point), màu, đậm. */
+    head: { labelSize: number; color: string; bold: boolean }
     /** Khoảng đệm thêm của mỗi hàng (ROW_PAD + padding dọc lớn nhất). */
     rowPad: number
     /** Cách đặt chữ (Giải, tên giải, tên đài) và số kết quả trong ô. */
@@ -175,8 +181,22 @@ export interface SheetLayout {
   title: string
   blank: boolean
   font: string
-  colors: Colors
+  borderColor: string
   warnings: string[]
+}
+
+/** Một hàng giải sau khi gộp chỉnh riêng với mức chung; size, line, labelSize tính bằng half-point / twips. */
+export interface PrizeRowLayout {
+  size: number
+  line: number
+  labelSize: number
+  numberColor: string
+  labelColor: string
+  labelBold: boolean
+  bold: boolean
+  italic: boolean
+  underline: boolean
+  fill: string | null
 }
 
 /** Chia nguyên cắt phần lẻ như $(( )) của bash. */
@@ -214,12 +234,12 @@ function estimateLines(runs: Run[], widthTw: number, scale: number): number {
   return Math.max(1, Math.ceil(w / Math.max(1, widthTw)))
 }
 
-/** Gộp các run liền nhau cùng cỡ (để bản Word giống hệt bản bash khi cùng cỡ chữ). */
+/** Gộp các run liền nhau cùng cỡ, cùng kiểu (để bản Word giống hệt bản bash khi cùng cỡ chữ). */
 function mergeRuns(runs: Run[]): Run[] {
   const out: Run[] = []
   for (const r of runs) {
     const last = out[out.length - 1]
-    if (last && last.size === r.size) last.text += r.text
+    if (last && last.size === r.size && last.color === r.color && last.bold === r.bold && last.italic === r.italic) last.text += r.text
     else out.push({ ...r })
   }
   return out
@@ -228,6 +248,7 @@ function mergeRuns(runs: Run[]): Run[] {
 function headerLines(h: HeaderSettings, title: string, widthTw: number, textScale: number): HeaderLine[] {
   const lines: HeaderLine[] = []
   const val = (t: HeaderText) => (t.show ? t.value.trim() : '')
+  const ink = (t: TextStyle): TextStyle => ({ color: t.color, bold: t.bold, italic: t.italic })
   // factor tính theo phần trăm để làm tròn bằng số nguyên: lineH = ⌊pt × 20 × factor⌋
   const push = (id: HeaderLine['id'], runs: Run[], factor: number, style: HeaderLineStyle) => {
     runs = mergeRuns(runs.filter((r) => r.text))
@@ -247,13 +268,13 @@ function headerLines(h: HeaderSettings, title: string, widthTw: number, textScal
   const label = val(h.label)
   const name = val(h.name)
   push('name', [
-    { text: label && name ? `${label} ` : label, size: ptToHalf(h.label.size) },
-    { text: name, size: ptToHalf(h.name.size) }
+    { text: label && name ? `${label} ` : label, size: ptToHalf(h.label.size), ...ink(h.label) },
+    { text: name, size: ptToHalf(h.name.size), ...ink(h.name) }
   ], 136, h.name)
 
-  push('addr', [{ text: val(h.addr), size: ptToHalf(h.addr.size) }], 120, h.addr)
-  push('contact', [{ text: val(h.contact), size: ptToHalf(h.contact.size) }], 120, h.contact)
-  push('date', [{ text: title, size: ptToHalf(h.date.size) }], 131, h.date)
+  push('addr', [{ text: val(h.addr), size: ptToHalf(h.addr.size), ...ink(h.addr) }], 120, h.addr)
+  push('contact', [{ text: val(h.contact), size: ptToHalf(h.contact.size), ...ink(h.contact) }], 120, h.contact)
+  push('date', [{ text: title, size: ptToHalf(h.date.size), ...ink(h.date) }], 131, h.date)
   return lines
 }
 
@@ -337,11 +358,16 @@ export function computeLayout(input: LayoutInput): SheetLayout {
   const perHalfPoint = Math.ceil(30 * scaleOf(input.fontScale?.digits))
   const maxW = idiv(stW - 76 - numBox.indentLeft - numBox.indentRight, perHalfPoint)
   const top = ps.numberFontPt ? Math.trunc(ps.numberFontPt * 2) : 36
-  const baseFor = (sz: number, db: number) => 18 * sz * 11 + db * 11 + 10 * rowPad
+  // Cỡ cộng thêm của từng hàng (half-point); mặc định ĐB +2 như bản bash
+  const delta = (k: PrizeKey) => Math.round(ps.rows[k].sizeDeltaPt * 2)
+  const rowSizeIn = (sz: number, k: PrizeKey) => Math.max(MIN_ROW_SIZE, sz + delta(k))
+  // Hàng tiêu đề + mọi dòng số: (cỡ chung + Σ số dòng × cỡ của hàng) × 11 + đệm 10 hàng
+  const baseFor = (sz: number, sizeOf: (k: PrizeKey) => number) =>
+    (sz + PRIZES.reduce((sum, k) => sum + PRIZE_COUNT[k] * sizeOf(k), 0)) * 11 + 10 * rowPad
   let numSz = top
   for (; numSz > 14; numSz--) {
     if (numSz > maxW) continue
-    if (baseFor(numSz, numSz + 2) <= available) break
+    if (baseFor(numSz, (k) => rowSizeIn(numSz, k)) <= available) break
   }
   if (numSz < 15) numSz = 15
   if (ps.numberFontPt && numSz < top) {
@@ -350,12 +376,15 @@ export function computeLayout(input: LayoutInput): SheetLayout {
   if (numSz > maxW) {
     warnings.push('Ô số quá hẹp, số có thể bị cắt. Bớt đài, tăng bề ngang phiếu hoặc giảm padding ngang của số.')
   }
-  let dbSz = numSz + 2
-  if (dbSz > maxW - 1) dbSz = maxW - 1 // ĐB 6 chữ số phải vừa ô
-  if (dbSz < numSz) dbSz = numSz
+  /** Hàng to hơn cỡ chung: 6 chữ số phải vừa ô (như ĐB của bản bash), không nhỏ hơn cỡ chung. */
+  const rowSize = (k: PrizeKey) => {
+    const sz = rowSizeIn(numSz, k)
+    return delta(k) > 0 ? Math.max(numSz, Math.min(sz, maxW - 1)) : sz
+  }
+  const dbSz = rowSize('db')
   const L = numSz * 11 // dòng số cao 1,1 lần cỡ chữ
   const LDB = dbSz * 11
-  let extra = available - baseFor(numSz, dbSz)
+  let extra = available - baseFor(numSz, rowSize)
   if (extra < 0) {
     extra = 0
     warnings.push(
@@ -364,9 +393,27 @@ export function computeLayout(input: LayoutInput): SheetLayout {
         : 'Phiếu hơi chật, có thể tràn trang. Thử bớt nội dung đầu phiếu hoặc giảm cỡ chữ.'
     )
   }
+  const pl = ps.prizeLabels
+  const nb = ps.numbers
+  const prizeRows = Object.fromEntries(PRIZES.map((k) => {
+    const r = ps.rows[k]
+    const size = rowSize(k)
+    return [k, {
+      size,
+      line: size * 11,
+      labelSize: ptToHalf(k === 'db' ? pl.dbSize : pl.size),
+      numberColor: r.numberColor ?? nb.color,
+      labelColor: r.labelColor ?? pl.color,
+      labelBold: pl.bold,
+      bold: r.bold ?? nb.bold,
+      italic: r.italic ?? nb.italic,
+      underline: r.underline ?? nb.underline,
+      fill: r.fill
+    }]
+  })) as Record<PrizeKey, PrizeRowLayout>
 
   const rows: TableRow[] = ROW_KEYS.map((key) => {
-    const h = key === 'hdr' ? L + rowPad : key === 'db' ? LDB + rowPad : PRIZE_COUNT[key] * L + rowPad
+    const h = key === 'hdr' ? L + rowPad : PRIZE_COUNT[key] * prizeRows[key].line + rowPad
     return {
       key,
       label: key === 'hdr' ? 'Giải' : PRIZE_LABEL[key],
@@ -401,6 +448,8 @@ export function computeLayout(input: LayoutInput): SheetLayout {
       dbSize: dbSz,
       numberLine: L,
       dbLine: LDB,
+      prizeRows,
+      head: { labelSize: ptToHalf(ps.headRow.labelSize), color: ps.headRow.color, bold: ps.headRow.bold },
       rowPad,
       text: textBox,
       number: numBox
@@ -409,7 +458,7 @@ export function computeLayout(input: LayoutInput): SheetLayout {
     title: input.title,
     blank: input.blank ?? false,
     font: ps.font,
-    colors: ps.colors,
+    borderColor: ps.borderColor,
     warnings
   }
 }

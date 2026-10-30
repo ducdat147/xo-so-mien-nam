@@ -2,7 +2,7 @@
 // Mọi kích thước lấy từ layout (twips ÷ 20 = pt) nên bản PDF khớp bản Word.
 
 import type { CellBox, SheetLayout } from './layout'
-import { CELL_MARGIN, DB_LABEL_SIZE, LABEL_AFTER, LABEL_SIZE, SPACER_H } from './layout'
+import { CELL_MARGIN, LABEL_AFTER, SPACER_H } from './layout'
 import { PRIZES } from './stations'
 
 export interface HtmlOptions {
@@ -38,6 +38,10 @@ const pt = (tw: number) => `${Number((tw / 20).toFixed(2))}pt`
 /** half-point → "13.5pt" */
 const hp = (size: number) => `${size / 2}pt`
 
+/** Màu và kiểu chữ (chữ trên phiếu mặc định đậm, đen theo body). */
+const ink = (st: { color: string; bold: boolean; italic?: boolean; underline?: boolean }) =>
+  `;color:#${st.color}${st.bold ? '' : ';font-weight:400'}${st.italic ? ';font-style:italic' : ''}${st.underline ? ';text-decoration:underline' : ''}`
+
 function headerHtml(l: SheetLayout, withIndent: boolean, parts: boolean): string {
   const { left, right } = withIndent ? l.header.indent : { left: 0, right: 0 }
   const pad = left || right ? ` style="padding-left:${pt(left)};padding-right:${pt(right)}"` : ''
@@ -45,7 +49,7 @@ function headerHtml(l: SheetLayout, withIndent: boolean, parts: boolean): string
   const lines = l.header.lines
     .map((line) => {
       const maxSize = Math.max(...line.runs.map((r) => r.size))
-      const runs = line.runs.map((r) => `<span style="font-size:${hp(r.size)}">${htmlEscape(r.text)}</span>`).join('')
+      const runs = line.runs.map((r) => `<span style="font-size:${hp(r.size)}${ink(r)}">${htmlEscape(r.text)}</span>`).join('')
       const align = line.align === 'center' ? '' : `;text-align:${line.align}`
       return `<p${partAttr(parts, `line-${line.id}`)} style="font-size:${hp(maxSize)};line-height:${pt(line.lineH)};margin-bottom:${pt(line.after)}${align}">${runs}</p>`
     })
@@ -60,25 +64,25 @@ function tableHtml(l: SheetLayout, parts: boolean): string {
   const [hdr, ...prizeRows] = t.rows
 
   let rows = `<div class="tr"${partAttr(parts, 'hdr')} style="height:${pt(hdr.height)};${cols}">`
-  rows += `<div class="td hd t-text"><p style="font-size:${hp(LABEL_SIZE)}">${hdr.label}</p></div>`
+  const hs = ink(t.head)
+  rows += `<div class="td hd t-text"><p style="font-size:${hp(t.head.labelSize)}${hs}">${hdr.label}</p></div>`
   for (const st of l.stations) {
-    rows += `<div class="td hd t-text"><p style="font-size:${hp(t.stationSize)}">${htmlEscape(st.short)}</p></div>`
+    rows += `<div class="td hd t-text"><p style="font-size:${hp(t.stationSize)}${hs}">${htmlEscape(st.short)}</p></div>`
   }
   rows += '</div>'
 
   PRIZES.forEach((k, i) => {
     const row = prizeRows[i]
-    const isDb = k === 'db'
-    rows += `<div class="tr" style="height:${pt(row.height)};${cols}">`
-    const labStyle = isDb ? `font-size:${hp(DB_LABEL_SIZE)}` : `font-size:${hp(LABEL_SIZE)};margin-bottom:${pt(LABEL_AFTER)}`
-    const lab = `<p style="${labStyle}">${row.label}</p>`
-    rows += `<div class="td lab t-text"${partAttr(parts, 'labels')}>${lab}</div>`
-    const numStyle = isDb
-      ? `font-size:${hp(t.dbSize)};line-height:${pt(t.dbLine)}`
-      : `font-size:${hp(t.numberSize)};line-height:${pt(t.numberLine)}`
+    const r = t.prizeRows[k]
+    const fill = r.fill ? ` style="background:#${r.fill}"` : ''
+    rows += `<div class="tr"${partAttr(parts, `row-${k}`)} style="height:${pt(row.height)};${cols}">`
+    const after = k === 'db' ? '' : `;margin-bottom:${pt(LABEL_AFTER)}`
+    const lab = `<p style="font-size:${hp(r.labelSize)}${after}${ink({ color: r.labelColor, bold: r.labelBold })}">${row.label}</p>`
+    rows += `<div class="td lab t-text"${partAttr(parts, 'labels')}${fill}>${lab}</div>`
+    const numStyle = `font-size:${hp(r.size)};line-height:${pt(r.line)}${ink({ ...r, color: r.numberColor })}`
     for (const st of l.stations) {
       const nums = st.prizes[k].map((n) => `<p style="${numStyle}">${htmlEscape(n)}</p>`).join('')
-      rows += `<div class="td n-text${isDb ? ' db' : ''}"${partAttr(parts, 'numbers')}>${nums}</div>`
+      rows += `<div class="td n-text"${partAttr(parts, 'numbers')}${fill}>${nums}</div>`
     }
     rows += '</div>'
   })
@@ -100,8 +104,8 @@ function cellPadding(box: CellBox, vertical: boolean): string {
 }
 
 function styles(l: SheetLayout, mode: 'sheet' | 'card'): string {
-  const c = l.colors
   const t = l.table
+  const border = l.borderColor
   const page =
     mode === 'sheet'
       ? `@page{size:${l.page.widthMm}mm ${l.page.heightMm}mm;margin:0}
@@ -113,22 +117,21 @@ padding:${pt(l.margin.top)} ${pt(l.margin.right)} ${pt(l.margin.bottom)} ${pt(l.
   return `${page}
 html,body{margin:0;padding:0;background:#fff}
 @media screen{html,body{overflow:hidden}}
-body{font-family:${fontFamilyCss(l.font)};font-weight:700;color:#${c.text};
+body{font-family:${fontFamilyCss(l.font)};font-weight:700;color:#000;
 -webkit-print-color-adjust:exact;print-color-adjust:exact;font-kerning:normal;text-rendering:geometricPrecision}
 p{margin:0}
-.head{text-align:center;white-space:pre-wrap;color:#${c.text}}
+.head{text-align:center;white-space:pre-wrap}
 .head span{line-height:1}
-.tbl{outline:0.75pt solid #${c.border};outline-offset:-0.375pt}
+.tbl{outline:0.75pt solid #${border};outline-offset:-0.375pt}
 .tr{display:grid;box-sizing:border-box;overflow:hidden}
-.tr+.tr{border-top:0.75pt solid #${c.border}}
-.td{box-sizing:border-box;min-width:0;overflow:hidden;display:flex;flex-direction:column;color:#${c.accent}}
-.td+.td{border-left:0.75pt solid #${c.border}}
+.tr+.tr{border-top:0.75pt solid #${border}}
+.td{box-sizing:border-box;min-width:0;overflow:hidden;display:flex;flex-direction:column}
+.td+.td{border-left:0.75pt solid #${border}}
 .td.hd{justify-content:center;${cellPadding(t.text, false)}}
 .t-text{text-align:${t.text.alignX};overflow-wrap:anywhere}
 .td.lab{justify-content:${JUSTIFY[t.text.alignY]};${cellPadding(t.text, true)}}
-.n-text{text-align:${t.number.alignX};color:#${c.number};justify-content:${JUSTIFY[t.number.alignY]};${cellPadding(t.number, true)}}
-.n-text p{white-space:nowrap}
-.n-text.db{color:#${c.accent}}`
+.n-text{text-align:${t.number.alignX};justify-content:${JUSTIFY[t.number.alignY]};${cellPadding(t.number, true)}}
+.n-text p{white-space:nowrap}`
 }
 
 export function renderHtml(l: SheetLayout, opts: HtmlOptions = {}): string {

@@ -1,10 +1,14 @@
 import { useState, type ReactElement, type ReactNode } from 'react'
 import { maxCardSizeCm, viNumber } from '../../../../../core/layout'
 import type { SheetStation } from '../../../../../core/select'
-import type { CellStyle, HeaderLineStyle, HeaderText } from '../../../../../core/settings'
-import { DEFAULT_FONT, HEADER_AFTER_MAX, HEADER_SIZE_MAX, HEADER_SIZE_MIN } from '../../../../../core/settings'
-import { STATIONS } from '../../../../../core/stations'
+import type { CellStyle, HeaderLineStyle, HeaderText, PrizeRowStyle, TextStyle } from '../../../../../core/settings'
+import {
+  defaultRow, DEFAULT_FONT, HEADER_AFTER_MAX, HEADER_SIZE_MAX, HEADER_SIZE_MIN, LABEL_SIZE_MAX, LABEL_SIZE_MIN, ROW_DELTA_MAX,
+  ROW_DELTA_MIN
+} from '../../../../../core/settings'
+import { STATIONS, type PrizeKey } from '../../../../../core/stations'
 import { AlignGrid, alignName } from '../../../components/AlignGrid'
+import { ColorField } from '../../../components/ColorField'
 import { CompactInput } from '../../../components/CompactInput'
 import { Segmented } from '../../../components/controls'
 import {
@@ -13,17 +17,18 @@ import {
 } from '../../../components/icons'
 import { LineAlignPicker } from '../../../components/LineAlignPicker'
 import { PagePositionPicker } from '../../../components/PagePositionPicker'
+import { TextStyleToggles } from '../../../components/TextStyleToggles'
 import { useLocalFonts } from '../../../hooks'
 import { PAPER_OPTIONS } from '../../../labels'
 import type { DraftProps } from '../../../useSettingsDraft'
-import { findNode, shownOf, toggleShown, type NodeId } from './nodes'
+import { findNode, prizeOf, shownOf, toggleShown, type NodeId } from './nodes'
 
 type LineKey = 'name' | 'addr' | 'contact'
 type TextKey = 'label' | LineKey
 const LINE_OF: Record<'line1' | 'line2' | 'line3', LineKey> = { line1: 'name', line2: 'addr', line3: 'contact' }
 const TEXT_OF: Partial<Record<NodeId, TextKey>> = { 'line1.label': 'label', 'line1.text': 'name', 'line2.text': 'addr', 'line3.text': 'contact' }
 
-const KIND: Record<NodeId, string> = {
+const KIND: Partial<Record<NodeId, string>> = {
   card: 'Khung ngoài cùng của phiếu',
   head: 'Các dòng in trên bảng kết quả',
   line1: 'Nhóm Label + Text',
@@ -37,13 +42,14 @@ const KIND: Record<NodeId, string> = {
   table: 'Khung và viền bảng',
   hdr: 'Chữ “Giải” và tên đài',
   labels: 'Tám … Nhất và ĐB',
-  numbers: 'Các số trúng thưởng'
+  numbers: 'Các số trúng thưởng, mọi hàng',
+  rows: 'Chỉnh riêng từng hàng'
 }
 
-const ICON: Record<NodeId, () => ReactElement> = {
+const ICON: Partial<Record<NodeId, () => ReactElement>> = {
   card: IconReceipt, head: IconPanelTop, line1: IconLine, line2: IconLine, line3: IconLine,
   'line1.label': IconType, 'line1.text': IconType, 'line2.text': IconType, 'line3.text': IconType,
-  date: IconCalendar, table: IconTable, hdr: IconRows, labels: IconTag, numbers: IconHash
+  date: IconCalendar, table: IconTable, hdr: IconRows, labels: IconTag, numbers: IconHash, rows: IconRows
 }
 
 function Sec({ title, children }: { title: string; children: ReactNode }) {
@@ -55,11 +61,23 @@ function Sec({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
+/** Hàng có nhãn ngắn bên trái (Màu số, Tên giải…). */
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="insp-field">
+      <span className="insp-label">{label}</span>
+      {children}
+    </div>
+  )
+}
+
 /** Cột phải tab Phiếu: thuộc tính phần đang chọn; không chọn gì thì là thuộc tính trang giấy. */
 export function Inspector(props: DraftProps & {
   selected: NodeId | null
   /** Cỡ số kết quả đang dùng thật (pt). */
   numberSizePt: number
+  /** Cỡ số đang dùng thật của từng hàng giải (pt). */
+  rowSizePt: Record<PrizeKey, number>
   /** Dòng thứ, ngày của phiếu đang xem, ví dụ "Thứ Hai (26-10-2026)". */
   dateLine: string
   /** Các đài trên phiếu đang xem (để sửa nhanh tên viết tắt). */
@@ -67,8 +85,8 @@ export function Inspector(props: DraftProps & {
 }) {
   const { selected: id, draft } = props
   const name = id ? findNode(id)?.name ?? '' : 'Trang giấy'
-  const kind = id ? KIND[id] : 'Chưa chọn phần nào trên phiếu'
-  const Icon = id ? ICON[id] : IconPage
+  const kind = id ? KIND[id] ?? 'Hàng giải' : 'Chưa chọn phần nào trên phiếu'
+  const Icon = id ? ICON[id] ?? IconRows : IconPage
   const shown = id ? shownOf(draft, id) : null
 
   return (
@@ -94,30 +112,31 @@ export function Inspector(props: DraftProps & {
   )
 }
 
-function Body(props: Parameters<typeof Inspector>[0]) {
+type Props = Parameters<typeof Inspector>[0]
+
+function Body(props: Props) {
   const { selected: id, draft, setDraft } = props
   if (!id) return <PageProps {...props} />
   if (id === 'card') return <CardProps {...props} />
   if (id === 'line1' || id === 'line2' || id === 'line3') {
-    const n = id.slice(-1)
     return (
       <>
-        <LineStyle {...props} lineKey={LINE_OF[id]} label={`Dòng ${n}`} afterHint="Khoảng cách tới dòng dưới." />
+        <LineStyle {...props} lineKey={LINE_OF[id]} label={`Dòng ${id.slice(-1)}`} afterHint="Khoảng cách tới dòng dưới." />
         <p className="hint">
           {id === 'line1'
             ? 'Label và Text in liền nhau trên cùng một dòng, căn chung một khối. Để trống Label thì dòng chỉ còn Text.'
-            : 'Chọn Text bên trong để sửa chữ và cỡ chữ.'}
+            : 'Chọn Text bên trong để sửa chữ, cỡ chữ, màu.'}
         </p>
       </>
     )
   }
   const textKey = TEXT_OF[id]
   if (textKey) {
-    const group = id.slice(0, 5)
+    const group = id.slice(0, 5) as NodeId
     return (
       <>
         <TextProps {...props} textKey={textKey} label={findNode(id)?.name ?? ''} />
-        <p className="hint">In đúng như chữ đã gõ. Căn lề và khoảng cách: chọn {findNode(group as NodeId)?.name} trong cây.</p>
+        <p className="hint">In đúng như chữ đã gõ. Căn lề và khoảng cách: chọn {findNode(group)?.name} trong cây.</p>
       </>
     )
   }
@@ -128,32 +147,40 @@ function Body(props: Parameters<typeof Inspector>[0]) {
         <Sec title="Chữ">
           <input className="input" value={props.dateLine} readOnly aria-label="Dòng thứ, ngày (tự động)" />
           <p className="hint">Tự đổi theo ngày xổ, không sửa chữ được.</p>
-          <SizeInput id="f-date-size" label="Thứ, ngày" value={h.size} onChange={(v) => setDraft((d) => { d.header.date.size = v })} />
+          <div className="row">
+            <SizeInput id="f-date-size" label="Thứ, ngày" value={h.size} onChange={(v) => setDraft((d) => { d.header.date.size = v })} />
+            <InkToggles label="Thứ, ngày" value={h} onChange={(c) => setDraft((d) => { Object.assign(d.header.date, c) })} />
+          </div>
+          <Field label="Màu chữ">
+            <ColorField label="Màu chữ Thứ, ngày" value={h.color} onChange={(c) => setDraft((d) => { d.header.date.color = c ?? h.color })} />
+          </Field>
         </Sec>
         <LineStyle {...props} lineKey="date" label="Thứ, ngày" afterHint="Khoảng cách tới bảng kết quả." />
       </>
     )
   }
   if (id === 'head') return <p className="hint">Chọn một dòng trong cây (Dòng 1–3, Thứ, ngày) để chỉnh. Phần đầu cao lên thì bảng kết quả tự co lại cho vừa phiếu.</p>
-  if (id === 'table') return <p className="hint">Chọn Hàng tiêu đề, Tên giải hoặc Số kết quả trong cây để chỉnh chữ và số trong bảng. Viền đơn 0,75 pt, cả trong lẫn ngoài bảng.</p>
+  if (id === 'table') return <TableProps {...props} />
   if (id === 'hdr') return <HeaderRowProps {...props} />
-  if (id === 'labels') {
-    return (
-      <>
-        <CellProps {...props} cellKey="textCell" name="chữ" />
-        <p className="hint">Hàng tiêu đề luôn nằm giữa ô theo chiều dọc, lấy căn ngang và padding ngang ở đây.</p>
-      </>
-    )
-  }
-  return <NumberProps {...props} />
+  if (id === 'labels') return <PrizeLabelProps {...props} />
+  if (id === 'numbers') return <NumberProps {...props} />
+  const k = prizeOf(id)
+  if (k) return <PrizeRowProps {...props} prize={k} />
+  return <p className="hint">Mở nhóm và chọn một hàng giải để chỉnh cỡ số, màu, kiểu chữ, nền riêng của hàng đó. Phần không chỉnh thì theo Số kết quả và Tên giải.</p>
 }
 
-function SizeInput(props: { id: string; label: string; value: number; onChange: (v: number) => void }) {
+function SizeInput(props: { id: string; label: string; value: number; onChange: (v: number) => void; kind?: 'size' | 'size-giai' | 'size-db'; min?: number; max?: number }) {
   return (
-    <CompactInput id={props.id} kind="size" label={`cỡ chữ ${props.label}`} unit="pt" title={`Cỡ chữ ${props.label}`}
-      value={props.value} min={HEADER_SIZE_MIN} max={HEADER_SIZE_MAX} step={0.5}
+    <CompactInput id={props.id} kind={props.kind ?? 'size'} label={`cỡ chữ ${props.label}`} unit="pt" title={`Cỡ chữ ${props.label}`}
+      value={props.value} min={props.min ?? HEADER_SIZE_MIN} max={props.max ?? HEADER_SIZE_MAX} step={0.5}
       onChange={(v) => props.onChange(v ?? props.value)} />
   )
+}
+
+/** Đậm / Nghiêng của một đoạn chữ. */
+function InkToggles(props: { label: string; value: TextStyle; onChange: (c: Partial<TextStyle>) => void }) {
+  const { label, value, onChange } = props
+  return <TextStyleToggles label={`Kiểu chữ ${label}`} value={{ bold: value.bold, italic: value.italic }} onChange={onChange} />
 }
 
 function TextProps(props: DraftProps & { textKey: TextKey; label: string }) {
@@ -166,7 +193,11 @@ function TextProps(props: DraftProps & { textKey: TextKey; label: string }) {
         onChange={(e) => set({ value: e.target.value })} />
       <div className="row">
         <SizeInput id={`f-${textKey}-size`} label={label} value={h.size} onChange={(size) => set({ size })} />
+        <InkToggles label={label} value={h} onChange={set} />
       </div>
+      <Field label="Màu chữ">
+        <ColorField label={`Màu chữ ${label}`} value={h.color} onChange={(c) => set({ color: c ?? h.color })} />
+      </Field>
     </Sec>
   )
 }
@@ -261,6 +292,21 @@ function CardProps({ draft, setDraft }: DraftProps) {
   )
 }
 
+function TableProps({ draft, setDraft }: DraftProps) {
+  return (
+    <>
+      <Sec title="Viền">
+        <Field label="Màu viền">
+          <ColorField label="Màu viền bảng" value={draft.print.borderColor}
+            onChange={(c) => setDraft((d) => { d.print.borderColor = c ?? d.print.borderColor })} />
+        </Field>
+        <p className="hint">Viền đơn 0,75 pt, cả trong lẫn ngoài bảng.</p>
+      </Sec>
+      <p className="hint">Chọn Hàng tiêu đề, Tên giải, Số kết quả hoặc từng hàng giải trong cây để chỉnh chữ và số trong bảng.</p>
+    </>
+  )
+}
+
 function CellProps(props: DraftProps & { cellKey: 'textCell' | 'numberCell'; name: string }) {
   const { draft, setDraft, cellKey, name } = props
   const c = draft.print[cellKey]
@@ -283,10 +329,34 @@ function CellProps(props: DraftProps & { cellKey: 'textCell' | 'numberCell'; nam
   )
 }
 
-function NumberProps(props: Parameters<typeof Inspector>[0]) {
+function PrizeLabelProps(props: Props) {
+  const { draft, setDraft } = props
+  const pl = draft.print.prizeLabels
+  const set = (c: Partial<typeof pl>) => setDraft((d) => { Object.assign(d.print.prizeLabels, c) })
+  return (
+    <>
+      <Sec title="Chữ">
+        <div className="row">
+          <SizeInput id="f-pl-size" label="tên giải" value={pl.size} min={LABEL_SIZE_MIN} max={LABEL_SIZE_MAX} onChange={(size) => set({ size })} />
+          <SizeInput id="f-pl-db" kind="size-db" label="ĐB" value={pl.dbSize} min={LABEL_SIZE_MIN} max={LABEL_SIZE_MAX} onChange={(dbSize) => set({ dbSize })} />
+        </div>
+        <div className="row">
+          <TextStyleToggles label="Kiểu chữ tên giải" value={{ bold: pl.bold }} onChange={(c) => set({ bold: !!c.bold })} />
+          <ColorField label="Màu tên giải" value={pl.color} onChange={(c) => set({ color: c ?? pl.color })} />
+        </div>
+        <p className="hint">Màu tên giải của từng hàng chỉnh riêng được trong Hàng giải.</p>
+      </Sec>
+      <CellProps {...props} cellKey="textCell" name="chữ" />
+      <p className="hint">Hàng tiêu đề luôn nằm giữa ô theo chiều dọc, lấy căn ngang và padding ngang ở đây.</p>
+    </>
+  )
+}
+
+function NumberProps(props: Props) {
   const { draft, setDraft, numberSizePt } = props
-  const { numberFontPt } = draft.print
+  const { numberFontPt, numbers: nb } = draft.print
   const pt = viNumber(numberSizePt)
+  const set = (c: Partial<typeof nb>) => setDraft((d) => { Object.assign(d.print.numbers, c) })
   return (
     <>
       <Sec title="Chữ số">
@@ -295,28 +365,92 @@ function NumberProps(props: Parameters<typeof Inspector>[0]) {
             title="Cỡ số kết quả. Để trống hoặc gõ auto: lớn nhất vừa phiếu"
             value={numberFontPt} min={8} max={30} step={0.5} allowAuto autoValue={numberSizePt}
             onChange={(v) => setDraft((d) => { d.print.numberFontPt = v })} />
+          <TextStyleToggles label="Kiểu chữ số" value={nb} onChange={set} />
         </div>
+        <Field label="Màu số">
+          <ColorField label="Màu số kết quả" value={nb.color} onChange={(c) => set({ color: c ?? nb.color })} />
+        </Field>
         <p className="hint">
           {numberFontPt === null
             ? `Cỡ Auto là lớn nhất vừa phiếu, đang là ${pt} pt.`
             : numberSizePt < numberFontPt
               ? `Cỡ ${viNumber(numberFontPt)} pt to quá, đang dùng ${pt} pt cho vừa phiếu.`
               : `Cỡ số cố định ${pt} pt.`}{' '}
-          Nhấp đúp chữ “Cỡ”, xoá số hoặc gõ “auto” để về Auto. Số ĐB lớn hơn 1 pt.
+          Nhấp đúp chữ “Cỡ”, xoá số hoặc gõ “auto” để về Auto.
         </p>
       </Sec>
       <CellProps {...props} cellKey="numberCell" name="số" />
+      <p className="hint">Từng hàng giải chỉnh riêng được: mở Hàng giải trong cây bên trái.</p>
     </>
   )
 }
 
-/** Tên viết tắt in trên phiếu: các đài đang xem trước, mở ra thì đủ 21 đài. */
-function HeaderRowProps(props: Parameters<typeof Inspector>[0]) {
+/** Một hàng giải: phần nào để trống (Chung) thì theo Số kết quả / Tên giải. */
+function PrizeRowProps(props: Props & { prize: PrizeKey }) {
+  const { draft, setDraft, prize: k, numberSizePt, rowSizePt } = props
+  const r = draft.print.rows[k]
+  const nb = draft.print.numbers
+  const set = (c: Partial<PrizeRowStyle>) => setDraft((d) => { Object.assign(d.print.rows[k], c) })
+  const cur = { bold: r.bold ?? nb.bold, italic: r.italic ?? nb.italic, underline: r.underline ?? nb.underline }
+  const changed = JSON.stringify(r) !== JSON.stringify(defaultRow(k))
+  return (
+    <>
+      <Sec title="Cỡ số">
+        <div className="row">
+          <CompactInput id={`f-row-${k}-delta`} kind="delta" label="cỡ số cộng thêm của hàng" unit="pt"
+            title="Cộng thêm (hoặc bớt, số âm) so với cỡ số chung"
+            value={r.sizeDeltaPt} min={ROW_DELTA_MIN} max={ROW_DELTA_MAX} step={0.5}
+            onChange={(v) => set({ sizeDeltaPt: v ?? 0 })} />
+        </div>
+        <p className="hint">
+          Cỡ số chung {viNumber(numberSizePt)} pt, hàng này đang dùng {viNumber(rowSizePt[k])} pt. Cỡ chung vẫn tự co cho vừa phiếu.
+        </p>
+      </Sec>
+      <Sec title="Màu">
+        <Field label="Số">
+          <ColorField label="Màu số của hàng" value={r.numberColor} emptyLabel="Chung" fallback={nb.color}
+            onChange={(c) => set({ numberColor: c })} />
+        </Field>
+        <Field label="Tên giải">
+          <ColorField label="Màu tên giải của hàng" value={r.labelColor} emptyLabel="Chung" fallback={draft.print.prizeLabels.color}
+            onChange={(c) => set({ labelColor: c })} />
+        </Field>
+      </Sec>
+      <Sec title="Kiểu chữ số">
+        <TextStyleToggles label="Kiểu chữ số của hàng" value={cur} onChange={set} />
+      </Sec>
+      <Sec title="Nền hàng">
+        <ColorField label="Màu nền hàng" value={r.fill} emptyLabel="Không" onChange={(c) => set({ fill: c })} />
+        <p className="hint">Máy in đen trắng in nền màu thành xám nhạt.</p>
+      </Sec>
+      <button type="button" className="btn subtle" disabled={!changed}
+        onClick={() => setDraft((d) => { d.print.rows[k] = defaultRow(k) })}>
+        Đặt lại hàng này
+      </button>
+    </>
+  )
+}
+
+/** Hàng tiêu đề: cỡ chữ "Giải", kiểu, màu; tên viết tắt các đài trên phiếu, mở ra thì đủ 21 đài. */
+function HeaderRowProps(props: Props) {
   const { draft, setDraft, stations } = props
   const [all, setAll] = useState(false)
+  const hr = draft.print.headRow
+  const set = (c: Partial<typeof hr>) => setDraft((d) => { Object.assign(d.print.headRow, c) })
   const list = all || !stations.length ? STATIONS : STATIONS.filter((st) => stations.some((s) => s.slug === st.slug))
   return (
     <>
+      <Sec title="Chữ">
+        <div className="row">
+          <SizeInput id="f-hr-size" kind="size-giai" label="“Giải”" value={hr.labelSize} min={LABEL_SIZE_MIN} max={LABEL_SIZE_MAX}
+            onChange={(labelSize) => set({ labelSize })} />
+          <TextStyleToggles label="Kiểu chữ hàng tiêu đề" value={{ bold: hr.bold }} onChange={(c) => set({ bold: !!c.bold })} />
+        </div>
+        <Field label="Màu chữ">
+          <ColorField label="Màu chữ hàng tiêu đề" value={hr.color} onChange={(c) => set({ color: c ?? hr.color })} />
+        </Field>
+        <p className="hint">Cỡ tên đài tự chọn 12, 10 hoặc 8 pt tuỳ bề rộng cột. Căn lề và padding đi theo Tên giải.</p>
+      </Sec>
       <Sec title="Tên viết tắt in trên phiếu">
         <div className="short-list">
           {list.map((st) => (
@@ -340,7 +474,6 @@ function HeaderRowProps(props: Parameters<typeof Inspector>[0]) {
         </button>
         <p className="hint">Để trống thì dùng tên viết tắt mặc định.</p>
       </Sec>
-      <p className="hint">Cỡ tên đài tự chọn 12, 10 hoặc 8 pt tuỳ bề rộng cột. Căn lề và padding đi theo Tên giải.</p>
     </>
   )
 }

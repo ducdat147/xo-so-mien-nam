@@ -5,6 +5,7 @@ import type { DayResult } from '../../../core/parse'
 import { renderHtml } from '../../../core/render-html'
 import type { Settings } from '../../../core/settings'
 import { buildSheet } from '../../../core/sheet'
+import { PRIZES, type PrizeKey } from '../../../core/stations'
 import { IconRedo, IconUndo } from '../components/icons'
 import { SheetPreview } from '../components/SheetPreview'
 import { measureFontScale } from '../fonts'
@@ -178,7 +179,8 @@ function CardEditor(props: SettingsScreenProps) {
         </p>
         {l.warnings.length > 0 && <ul className="warnings editor-caption">{l.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
       </div>
-      <Inspector {...edit} selected={selected} numberSizePt={numberSizePt} dateLine={l.title} stations={sheet.stations} />
+      <Inspector {...edit} selected={selected} numberSizePt={numberSizePt} dateLine={l.title} stations={sheet.stations}
+        rowSizePt={Object.fromEntries(PRIZES.map((k) => [k, l.table.prizeRows[k].size / 2])) as Record<PrizeKey, number>} />
     </div>
   )
 }
