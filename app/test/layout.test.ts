@@ -24,11 +24,12 @@ function withHeader(edit: (h: HeaderSettings) => void): Settings {
 
 const HEADERS: Record<string, Settings> = {
   'mặc định': agentSettings(),
-  'ẩn bớt': withHeader((h) => { h.addr.show = false; h.phones.show = false; h.label.show = false }),
-  'ẩn hết': withHeader((h) => { for (const k of Object.keys(h) as (keyof HeaderSettings)[]) h[k].show = false }),
+  'ẩn bớt': withHeader((h) => { h.addr.show = false; h.contact.show = false; h.label.show = false }),
+  'ẩn hết': withHeader((h) => { for (const k of ['label', 'name', 'addr', 'contact'] as const) h[k].show = false }),
   'cỡ to': withHeader((h) => {
-    h.name.size = 20; h.label.size = 12; h.addr.size = 10; h.phones.size = 10; h.date.size = 16
+    h.name.size = 20; h.label.size = 12; h.addr.size = 10; h.contact.size = 10; h.date.size = 16
   }),
+  'cách rộng': withHeader((h) => { h.name.afterPt = 20; h.addr.afterPt = 20; h.contact.afterPt = 20; h.date.afterPt = 20 }),
   'chữ dài': withHeader((h) => { h.addr.value = 'Số 123 đường Trần Hưng Đạo, Phường 1, Quận 5, Thành phố Hồ Chí Minh, Việt Nam' })
 }
 
@@ -136,6 +137,26 @@ describe('computeLayout — cảnh báo', () => {
     const l = computeLayout(input({ settings: s }))
     expect(l.table.numberSize).toBe(27)
     expect(l.warnings[0]).toMatch(/Cỡ số 20 pt quá lớn so với phiếu, đã dùng 13,5 pt/)
+  })
+
+  it('căn lề và khoảng cách từng dòng lấy từ cài đặt; dòng thứ, ngày luôn có', () => {
+    const l = computeLayout(input({
+      settings: withHeader((h) => {
+        h.addr.align = 'left'
+        h.contact.align = 'right'
+        h.name.afterPt = 6
+        h.date.afterPt = 0.5
+        for (const k of ['label', 'name', 'addr', 'contact'] as const) h[k].show = false
+        h.addr.show = true
+        h.contact.show = true
+      })
+    }))
+    expect(l.header.lines.map((x) => [x.id, x.align, x.after])).toEqual([
+      ['addr', 'left', 0], ['contact', 'right', 0], ['date', 'center', 10]
+    ])
+    // nhãn ẩn tên thì nhãn vẫn theo căn lề, khoảng cách của dòng tên
+    const label = computeLayout(input({ settings: withHeader((h) => { h.name.show = false; h.name.align = 'right'; h.name.afterPt = 6 }) }))
+    expect(label.header.lines[0]).toMatchObject({ id: 'name', align: 'right', after: 120, runs: [{ text: 'Đại lý vé số:', size: 16 }] })
   })
 
   it('chữ dài tự xuống dòng được tính vào chiều cao đầu phiếu', () => {

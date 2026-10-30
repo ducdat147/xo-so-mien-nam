@@ -41,7 +41,8 @@ function headerHtml(l: SheetLayout, withIndent: boolean): string {
     .map((line) => {
       const maxSize = Math.max(...line.runs.map((r) => r.size))
       const runs = line.runs.map((r) => `<span style="font-size:${hp(r.size)}">${htmlEscape(r.text)}</span>`).join('')
-      return `<p style="font-size:${hp(maxSize)};line-height:${pt(line.lineH)};margin-bottom:${pt(line.after)}">${runs}</p>`
+      const align = line.align === 'center' ? '' : `;text-align:${line.align}`
+      return `<p style="font-size:${hp(maxSize)};line-height:${pt(line.lineH)};margin-bottom:${pt(line.after)}${align}">${runs}</p>`
     })
     .join('')
   return `<div class="head"${pad}>${lines}</div>`

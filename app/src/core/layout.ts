@@ -2,7 +2,7 @@
 // dùng chung cho render-html (PDF, xem trước, in) và render-docx. Số đo port từ build_docx của
 // bản bash cũ (đã bỏ): giữ nguyên phép chia nguyên của bash để ra đúng từng twip.
 
-import type { Align, CellStyle, Colors, HeaderSettings, HeaderText, Paper, PrintSettings, VAlign } from './settings'
+import type { Align, CellStyle, Colors, HeaderLineStyle, HeaderSettings, HeaderText, Paper, PrintSettings, VAlign } from './settings'
 import { PRIZES, PRIZE_COUNT, PRIZE_LABEL, type PrizeKey, type Prizes } from './stations'
 
 export const TWIPS_PER_CM = 567
@@ -56,6 +56,7 @@ export interface Run {
 export interface HeaderLine {
   id: 'name' | 'addr' | 'contact' | 'date'
   runs: Run[]
+  align: Align
   /** Chiều cao mỗi dòng (exact). */
   lineH: number
   /** Khoảng cách sau đoạn. */
@@ -228,27 +229,31 @@ function headerLines(h: HeaderSettings, title: string, widthTw: number, textScal
   const lines: HeaderLine[] = []
   const val = (t: HeaderText) => (t.show ? t.value.trim() : '')
   // factor tính theo phần trăm để làm tròn bằng số nguyên: lineH = ⌊pt × 20 × factor⌋
-  const push = (id: HeaderLine['id'], runs: Run[], factor: number, after: number) => {
+  const push = (id: HeaderLine['id'], runs: Run[], factor: number, style: HeaderLineStyle) => {
     runs = mergeRuns(runs.filter((r) => r.text))
     if (!runs.length) return
     const maxSize = Math.max(...runs.map((r) => r.size))
-    lines.push({ id, runs, lineH: idiv(maxSize * 10 * factor, 100), after, lines: estimateLines(runs, widthTw, textScale) })
+    lines.push({
+      id,
+      runs,
+      align: style.align,
+      lineH: idiv(maxSize * 10 * factor, 100),
+      after: Math.round(style.afterPt * 20),
+      lines: estimateLines(runs, widthTw, textScale)
+    })
   }
 
+  // Nhãn in chung dòng với tên, theo căn lề / khoảng cách của dòng tên
   const label = val(h.label)
   const name = val(h.name)
   push('name', [
     { text: label && name ? `${label} ` : label, size: ptToHalf(h.label.size) },
     { text: name, size: ptToHalf(h.name.size) }
-  ], 136, 60)
+  ], 136, h.name)
 
-  const addr = val(h.addr)
-  push('addr', [{ text: addr && `ĐC: ${addr}`, size: ptToHalf(h.addr.size) }], 120, 0)
-
-  const phones = h.phones.show ? h.phones.values.map((p) => p.trim()).filter(Boolean) : []
-  push('contact', [{ text: phones.map((p) => `DĐ: ${p}`).join('  '), size: ptToHalf(h.phones.size) }], 120, 0)
-
-  if (h.date.show) push('date', [{ text: title, size: ptToHalf(h.date.size) }], 131, 60)
+  push('addr', [{ text: val(h.addr), size: ptToHalf(h.addr.size) }], 120, h.addr)
+  push('contact', [{ text: val(h.contact), size: ptToHalf(h.contact.size) }], 120, h.contact)
+  push('date', [{ text: title, size: ptToHalf(h.date.size) }], 131, h.date)
   return lines
 }
 

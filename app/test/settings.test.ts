@@ -20,10 +20,13 @@ describe('defaultSettings', () => {
     expect(Object.values(s.print.colors)).toEqual(['000000', '000000', '000000', '000000'])
     expect(s.print.textCell).toEqual({ padXCm: 0.05, padYCm: 0.05, alignX: 'center', alignY: 'top' })
     expect(s.print.numberCell).toEqual({ padXCm: 0.3, padYCm: 0.05, alignX: 'right', alignY: 'center' })
-    // Thông tin đại lý để trống, đại lý tự nhập
-    expect([s.header.label.value, s.header.name.value, s.header.addr.value]).toEqual(['', '', ''])
-    expect(Object.keys(s.header)).toEqual(['label', 'name', 'addr', 'phones', 'date'])
-    expect(s.header.phones.values).toEqual([])
+    // Thông tin để trống, đại lý tự nhập; căn giữa, khoảng cách như phiếu bản bash
+    expect(Object.keys(s.header)).toEqual(['label', 'name', 'addr', 'contact', 'date'])
+    expect([s.header.label, s.header.name, s.header.addr, s.header.contact].map((h) => h.value)).toEqual(['', '', '', ''])
+    expect([s.header.name, s.header.addr, s.header.contact, s.header.date].map((h) => [h.align, h.afterPt])).toEqual([
+      ['center', 3], ['center', 0], ['center', 0], ['center', 3]
+    ])
+    expect(s.version).toBe(2)
     expect(s.stations.mode).toBe('all')
     expect(s.stations.byWeekday[6].map((p) => p.slug)).toEqual(['tp-hcm', 'long-an', 'binh-phuoc', 'hau-giang'])
     expect(Object.keys(s.stations.byWeekday)).toHaveLength(7)
@@ -39,11 +42,13 @@ describe('normalizeSettings', () => {
 
   it('kẹp giá trị, làm tròn cỡ chữ theo bước 0,5, chuẩn hoá màu', () => {
     const s = normalizeSettings({
-      header: { name: { size: 99, value: 'A' }, addr: { size: 7.3 } },
+      version: 2,
+      header: { name: { size: 99, value: 'A', align: 'giữa', afterPt: 99 }, addr: { size: 7.3, afterPt: '1,3' }, date: { align: 'right' } },
       print: { paper: 'B5', cardGapXCm: -1, numberFontPt: '13,5', colors: { text: '#ff0000', border: 'xanh' } }
     })
-    expect(s.header.name).toEqual({ show: true, size: 30, value: 'A' })
-    expect(s.header.addr.size).toBe(7.5)
+    expect(s.header.name).toEqual({ show: true, size: 30, value: 'A', align: 'center', afterPt: 20 })
+    expect(s.header.addr).toMatchObject({ size: 7.5, afterPt: 1.5 })
+    expect(s.header.date).toEqual({ size: 13, align: 'right', afterPt: 3 })
     expect(s.print.paper).toBe('A4')
     expect(s.print.cardGapXCm).toBe(0)
     expect(s.print.numberFontPt).toBe(13.5)
@@ -63,6 +68,30 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings({ print: { cardHeightCm: 1 } }).print.cardHeightCm).toBe(4)
     expect(s.print.colors.text).toBe('FF0000')
     expect(s.print.colors.border).toBe('000000')
+  })
+
+  it('cài đặt bản 1: thêm "ĐC: " vào địa chỉ, ghép các số thành một dòng, bỏ ẩn dòng thứ ngày', () => {
+    const old = {
+      version: 1,
+      header: {
+        name: { show: true, size: 14, value: 'MINH' },
+        addr: { show: true, size: 9, value: '  Chợ Lớn ' },
+        phones: { show: false, size: 11, values: ['0909 000 111', ' ', '0283 333 444', 7] },
+        date: { show: false, size: 12 }
+      }
+    }
+    const s = normalizeSettings(old)
+    expect(s.version).toBe(2)
+    expect(s.header.addr).toEqual({ show: true, size: 9, value: 'ĐC: Chợ Lớn', align: 'center', afterPt: 0 })
+    expect(s.header.contact).toEqual({ show: false, size: 11, value: 'DĐ: 0909 000 111  DĐ: 0283 333 444', align: 'center', afterPt: 0 })
+    expect(s.header.date).toEqual({ size: 12, align: 'center', afterPt: 3 })
+    expect(s.header.name).toMatchObject({ value: 'MINH', align: 'center', afterPt: 3 })
+    // địa chỉ rỗng giữ rỗng; chuẩn hoá lại lần nữa không thêm "ĐC: " lần hai
+    expect(normalizeSettings({ header: { addr: { value: ' ' } } }).header.addr.value).toBe('')
+    expect(normalizeSettings(s)).toEqual(s)
+    // bản 2: chữ giữ nguyên văn
+    expect(normalizeSettings({ version: 2, header: { addr: { value: 'Chợ Lớn' }, contact: { value: '0909' } } }).header)
+      .toMatchObject({ addr: { value: 'Chợ Lớn' }, contact: { value: '0909' } })
   })
 
   it('font: nhận mọi tên font máy, bỏ ký tự phá CSS/HTML, rỗng thì về mặc định', () => {
@@ -128,7 +157,9 @@ describe('importConf', () => {
     expect(imported).toBe(12)
     expect(s.header.label.value).toBe('Đại lý vé số:')
     expect(s.header.name.value).toBe('ĐỨC QUYẾT')
-    expect(s.header.phones.values).toEqual(['01212 019 343', '0983 019 343'])
+    // file kiểu cũ: phiếu tự thêm "ĐC: " / "DĐ: " → chuyển sang chữ in nguyên văn
+    expect(s.header.addr.value).toBe('ĐC: Chợ Tapao - Đ.Kho - T.Linh – B.Thuận')
+    expect(s.header.contact.value).toBe('DĐ: 01212 019 343  DĐ: 0983 019 343')
     expect(s.stations.mode).toBe('all')
     expect(s.print).toMatchObject({ paper: 'A4', format: 'pdf', cardWidthCm: 8 })
     expect(s.print.numberCell.padXCm).toBe(0.3)
@@ -187,6 +218,32 @@ describe('importConf', () => {
     expect(settings.print.paper).toBe('A6')
   })
 
+  it('dòng đầu phiếu: CONF_VERSION=2 giữ nguyên văn, AGENT_CONTACT thay AGENT_PHONES, căn lề và khoảng cách', () => {
+    const v2 = importConf([
+      'CONF_VERSION=2',
+      'AGENT_ADDRESS="Số 5, Q.1"',
+      'AGENT_PHONES="0909"',
+      'AGENT_CONTACT="ĐT: 0283 333 444"',
+      'AGENT_NAME_ALIGN=left',
+      'AGENT_NAME_AFTER_PT=4,5',
+      'AGENT_CONTACT_ALIGN=right',
+      'AGENT_PHONES_SIZE=11',
+      'DATE_LINE_SHOW=0',
+      'DATE_LINE_ALIGN=right',
+      'DATE_LINE_AFTER_PT=99',
+      'AGENT_LABEL_ALIGN=left'
+    ].join('\n'))
+    expect(v2.settings.header.addr.value).toBe('Số 5, Q.1')
+    expect(v2.settings.header.contact).toMatchObject({ value: 'ĐT: 0283 333 444', align: 'right', size: 11 })
+    expect(v2.settings.header.name).toMatchObject({ align: 'left', afterPt: 4.5 })
+    expect(v2.settings.header.date).toEqual({ size: 13, align: 'right', afterPt: 3 })
+    // nhãn theo dòng tên; khoảng cách quá lớn báo bỏ qua; DATE_LINE_SHOW (dòng luôn in) bỏ qua không báo
+    expect(v2.ignored).toEqual(['DATE_LINE_AFTER_PT', 'AGENT_LABEL_ALIGN'])
+    // file kiểu cũ: địa chỉ thêm "ĐC: ", rỗng thì giữ rỗng
+    expect(importConf('AGENT_ADDRESS="Số 5"').settings.header.addr.value).toBe('ĐC: Số 5')
+    expect(importConf('AGENT_ADDRESS=').settings.header.addr.value).toBe('')
+  })
+
   it('FONT nhận tên font bất kỳ (font máy), để rỗng thì giữ font đang có', () => {
     expect(importConf('FONT="Segoe UI"').settings.print.font).toBe('Segoe UI')
     expect(importConf('FONT=Tahoma').settings.print.font).toBe('Tahoma')
@@ -202,10 +259,10 @@ describe('exportConf', () => {
   function custom() {
     const s = defaultSettings()
     s.header.label.value = 'Đại lý vé số:'
-    s.header.name = { show: true, size: 16, value: 'MINH "NGỌC" & CON # 2' }
-    s.header.addr = { show: false, size: 9.5, value: '12 Trần Hưng Đạo, Q.5' }
-    s.header.phones = { show: true, size: 11, values: ['0909 000 111', '0283 333 444'] }
-    s.header.date = { show: false, size: 12 }
+    s.header.name = { show: true, size: 16, value: 'MINH "NGỌC" & CON # 2', align: 'left', afterPt: 4.5 }
+    s.header.addr = { show: false, size: 9.5, value: 'ĐC: 12 Trần Hưng Đạo, Q.5', align: 'right', afterPt: 0 }
+    s.header.contact = { show: true, size: 11, value: 'DĐ: 0909 000 111  DĐ: 0283 333 444', align: 'center', afterPt: 1 }
+    s.header.date = { size: 12, align: 'right', afterPt: 6 }
     s.stations.mode = 'pick'
     s.stations.byWeekday[1] = [{ slug: 'ca-mau', on: true }, { slug: 'tp-hcm', on: false }, { slug: 'dong-thap', on: true }]
     s.stations.byWeekday[6] = [{ slug: 'hau-giang', on: true }, { slug: 'tp-hcm', on: true }, { slug: 'long-an', on: false }, { slug: 'binh-phuoc', on: true }]
@@ -261,6 +318,10 @@ describe('exportConf', () => {
     expect(text).toContain('STATIONS_ORDER_T2="ca-mau, -tp-hcm, dong-thap"')
     expect(text).toContain('CARD_WIDTH_CM=auto')
     expect(text).toContain('NUMBER_ALIGN=bottom-center')
+    expect(text).toContain('CONF_VERSION=2')
+    expect(text).toContain('AGENT_CONTACT="DĐ: 0909 000 111  DĐ: 0283 333 444"')
+    expect(text).toContain('DATE_LINE_AFTER_PT=6')
+    expect(text).not.toMatch(/AGENT_PHONES|DATE_LINE_SHOW/)
     expect(text.split('\n').filter((l) => l.startsWith('NAME_'))).toHaveLength(21)
   })
 

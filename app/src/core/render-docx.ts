@@ -63,7 +63,7 @@ function headerXml(l: SheetLayout): string {
   const ind = left > 0 || right > 0 ? `<w:ind w:left="${left}" w:right="${right}"/>` : ''
   if (!l.header.lines.length) return spacerPara(SPACER_H)
   return l.header.lines
-    .map((line) => para('center', line.after, line.runs.map((r) => run(r.text, l.colors.text, r.size)).join(''), line.lineH, ind))
+    .map((line) => para(line.align, line.after, line.runs.map((r) => run(r.text, l.colors.text, r.size)).join(''), line.lineH, ind))
     .join('')
 }
 

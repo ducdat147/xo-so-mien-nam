@@ -235,8 +235,12 @@ múi giờ máy: luôn theo ngày VN (Asia/Ho_Chi_Minh).
 
 ## 5. Cài đặt
 
-Lưu ở `userData/settings.json`. **Thông tin đại lý mặc định để trống** (nhãn, tên, địa chỉ,
-số DĐ); giá trị trong ví dụ dưới chỉ là mẫu (chủ dự án chốt 28-10-2026). **Không có dòng Fax và
+Lưu ở `userData/settings.json`. **Thông tin đầu phiếu mặc định để trống** (nhãn, tên, địa chỉ,
+số điện thoại); giá trị trong ví dụ dưới chỉ là mẫu (chủ dự án chốt 28-10-2026). Chữ đầu phiếu
+**in đúng như đã gõ**: phiếu không tự thêm "ĐC: " hay "DĐ: "; số điện thoại là **một dòng chữ**,
+không còn danh sách số (chủ dự án chốt 30-10-2026). Cài đặt `version` 1 (hoặc thiếu) tự chuyển
+sang 2 khi đọc: địa chỉ có chữ thì thêm "ĐC: " vào đầu, `phones.values` ghép thành
+`contact.value` = "DĐ: …  DĐ: …", bỏ `date.show`; nhờ vậy phiếu in ra như cũ. **Không có dòng Fax và
 ghi chú dưới chữ "Tư"** (chủ dự án bỏ 29-10-2026; cài đặt cũ có hai mục này thì bỏ qua). Cỡ chữ
 mặc định của nhãn, địa chỉ, DĐ là **10 pt** (chủ dự án chỉnh 28-10-2026; bản bash dùng 8 /
 7,5 pt — test so với bash tự đặt lại cỡ chữ của bash). Có nút **Lưu cài đặt**, **Khôi phục mặc định**,
@@ -244,13 +248,16 @@ mặc định của nhãn, địa chỉ, DĐ là **10 pt** (chủ dự án chỉ
 
 ```jsonc
 {
-  "version": 1,
-  "header": {                               // các dòng đầu phiếu, theo thứ tự hiển thị
-    "label":  { "show": true,  "size": 10,  "value": "Đại lý vé số:" },
-    "name":   { "show": true,  "size": 14,  "value": "ĐỨC QUYẾT" },
-    "addr":   { "show": true,  "size": 10,  "value": "Chợ Tapao - Đ.Kho - T.Linh – B.Thuận" }, // in "ĐC: " + value
-    "phones": { "show": true,  "size": 10,  "values": ["01212 019 343", "0983 019 343"] },      // mỗi số "DĐ: …"
-    "date":   { "show": true,  "size": 13 },                                                    // "Thứ Hai (26-10-2026)"
+  "version": 2,
+  "header": {                               // các dòng đầu phiếu, theo thứ tự hiển thị; chữ in nguyên văn
+    // label in chung dòng với name, theo align / afterPt của dòng name
+    "label":   { "show": true, "size": 10, "value": "Đại lý vé số:" },
+    // align: left | center | right; afterPt: khoảng cách tới dòng dưới (pt, 0–20, bước 0,5)
+    "name":    { "show": true, "size": 14, "value": "ĐỨC QUYẾT", "align": "center", "afterPt": 3 },
+    "addr":    { "show": true, "size": 10, "value": "ĐC: Chợ Tapao - Đ.Kho - T.Linh – B.Thuận", "align": "center", "afterPt": 0 },
+    "contact": { "show": true, "size": 10, "value": "DĐ: 01212 019 343  DĐ: 0983 019 343", "align": "center", "afterPt": 0 },
+    // "Thứ Hai (26-10-2026)": luôn in, luôn là dòng cuối; afterPt = khoảng cách tới bảng
+    "date":    { "size": 13, "align": "center", "afterPt": 3 }
   },
   "stations": {
     "mode": "all",                            // "all" = mọi đài quay trong ngày | "pick" = theo bảng dưới
@@ -294,8 +301,13 @@ nguyên kể cả `#`). File chỉ gồm **thông tin đại lý, đài và bố
 thư mục lưu, tự lấy lại (riêng từng máy, chủ dự án bỏ 29-10-2026). **Xuất** ghi đủ phần đó, chia
 nhóm có chú thích tiếng Việt, để **nhập lại ra y nguyên** (có test); nhập là ghi đè lên cài đặt
 đang có, khoá không có trong file thì giữ.
-- Đầu phiếu: `AGENT_LABEL`, `AGENT_NAME`, `AGENT_ADDRESS`, `AGENT_PHONES` (`|` ngăn cách; để rỗng
-  là xoá), mỗi dòng thêm `_SHOW` (1/0) và `_SIZE` (pt); `DATE_LINE_SHOW`, `DATE_LINE_SIZE`.
+- `CONF_VERSION=2` ở đầu file xuất. File không có dòng này là kiểu cũ: `AGENT_ADDRESS` được thêm
+  "ĐC: " vào đầu (như phiếu cũ tự thêm).
+- Đầu phiếu (chữ in nguyên văn, để rỗng là xoá): `AGENT_LABEL` (+ `_SHOW`, `_SIZE`),
+  `AGENT_NAME`, `AGENT_ADDRESS`, `AGENT_CONTACT` (dòng liên hệ), mỗi dòng thêm `_SHOW` (1/0),
+  `_SIZE` (pt), `_ALIGN` (left | center | right), `_AFTER_PT` (pt); `DATE_LINE_SIZE`,
+  `DATE_LINE_ALIGN`, `DATE_LINE_AFTER_PT`. `AGENT_LABEL_ALIGN` / `_AFTER_PT` báo bỏ qua (nhãn theo
+  dòng tên).
 - Đài: `STATIONS_MODE` (all | pick), `STATIONS_ORDER_T2…T7/CN` (thứ tự cột, `-ma-dai` = không in),
   `NAME_<slug>` (xuất đủ 21 đài).
 - Bản in: `PAPER`, `OUTPUT_FORMAT`, `CARD_WIDTH_CM` / `CARD_HEIGHT_CM` (số hoặc `auto`),
@@ -303,7 +315,9 @@ nhóm có chú thích tiếng Việt, để **nhập lại ra y nguyên** (có t
   `TEXT_PAD_X_CM`, `TEXT_PAD_Y_CM`, `TEXT_ALIGN`, `NUMBER_PAD_X_CM`, `NUMBER_PAD_Y_CM`,
   `NUMBER_ALIGN` (`<dọc>-<ngang>`, ví dụ `center-right`), `COLOR_TEXT/ACCENT/BORDER/NUMBER`.
 - Khoá kiểu cũ của bản bash vẫn nhận: `STATIONS` / `STATIONS_T2…` (đài được in, giữ thứ tự web),
-  `CARD_GAP_CM` (cả hai chiều), `ALIGN_TEXT`, `ALIGN_NUMBER`, `NUMBER_PAD_RIGHT_CM`.
+  `CARD_GAP_CM` (cả hai chiều), `ALIGN_TEXT`, `ALIGN_NUMBER`, `NUMBER_PAD_RIGHT_CM`,
+  `AGENT_PHONES` (`|` ngăn cách → "DĐ: …  DĐ: …"; có `AGENT_CONTACT` thì không dùng, như bản bash),
+  `AGENT_PHONES_SHOW/SIZE/…` (= `AGENT_CONTACT_…`). `DATE_LINE_SHOW` bỏ qua không báo (dòng luôn in).
   `STATIONS_ORDER_x` ưu tiên hơn `STATIONS_x` hơn `STATIONS`.
 - Khoá lạ / giá trị sai (kể cả `AGENT_FAX`, `NOTE`, `SOFFICE`, `OUTPUT_DIR` của bản cũ, và
   `PRINTER` / `PRINT_*` / `AUTO_REFRESH` nếu viết tay vào): bỏ qua, báo tên khoá và số khoá đã nhập.
@@ -346,15 +360,17 @@ mô tả này ⇒ PDF và Word giống nhau. Chuẩn tham chiếu: bản chụp 
 
 ### 6.2 Phần đầu phiếu
 
-Các dòng (dòng nào `show:false` hoặc rỗng thì bỏ; cỡ chữ lấy từ cài đặt, đơn vị pt),
-căn giữa, chữ **đậm**:
+Các dòng (dòng nào `show:false` hoặc rỗng thì bỏ; dòng thứ, ngày luôn có), chữ **đậm**, in
+nguyên văn chữ đã gõ. Cỡ chữ (pt), căn lề (`w:jc` / `text-align`) và cách sau
+(`afterPt × 20` twips) lấy từ cài đặt từng dòng; mặc định căn giữa, cách sau như bảng dưới
+(giống bản bash):
 
-| Dòng | Nội dung | Chiều cao dòng (exact) | Cách sau |
+| Dòng | Nội dung | Chiều cao dòng (exact) | Cách sau mặc định |
 |---|---|---|---|
-| 1 | label + " " + name (2 run, 2 cỡ) | max(pt) × 20 × 1.36 (mặc định 380) | 60 |
-| 2 | "ĐC: " + addr | pt × 20 × 1.2 (mặc định 180) | 0 |
-| 3 | "DĐ: …  DĐ: …" (các số cách nhau 2 dấu cách; không còn Fax) | pt × 20 × 1.2 | 0 |
-| 4 | "Thứ Hai (26-10-2026)" | pt × 20 × 1.31 (mặc định 340) | 60 |
+| 1 | label + " " + name (2 run, 2 cỡ; căn lề, cách sau theo name) | max(pt) × 20 × 1.36 (mặc định 380) | 60 (3 pt) |
+| 2 | addr | pt × 20 × 1.2 (mặc định 180) | 0 |
+| 3 | contact (một dòng; không còn Fax) | pt × 20 × 1.2 | 0 |
+| 4 | "Thứ Hai (26-10-2026)" | pt × 20 × 1.31 (mặc định 340) | 60 (3 pt) |
 
 Dòng dài tự xuống dòng: ước lượng số dòng = ⌈Σ(len × pt × 0.5) / (cardW/20)⌉ (đậm
 ~0,5 em/ký tự), cộng vào `headerH`. Sai số nhỏ đã được trừ hao bằng `safety = 160`.
@@ -490,11 +506,17 @@ phải (≈340px) là **Xem trước phiếu** (một bản, cập nhật
 ngay khi sửa; dùng kết quả gần nhất đã tải, nếu chưa có thì dữ liệu mẫu 26-10-2026)
 kèm dòng "Cỡ số kết quả hiện tại: 13,5 pt (tự chỉnh để vừa phiếu)".
 
-1. **Thông tin đại lý** — mỗi dòng của §5 `header` là một hàng:
+1. **Thông tin** (đổi tên từ "Thông tin đại lý", chủ dự án duyệt trên Figma 30-10-2026) — tên cột
+   **Cỡ chữ · Căn lề · Cách dưới** ghi một lần ở đầu; mỗi dòng của §5 `header` là một hàng:
    nút **con mắt** (mở = hiện, gạch chéo = ẩn; `aria-pressed`, tooltip
    "Đang hiện – bấm để ẩn") · nhãn + ô nhập (dòng ẩn có nhãn "Đang ẩn") ·
-   **Cỡ chữ** (ô gọn ["Cỡ" | số, bước 0,5, 5–30 | "pt"]). Số điện thoại: danh sách ô + nút xoá,
-   "+ Thêm số". "Dòng thứ, ngày" không nhập được (tự động). Không có dòng Fax, ghi chú dưới "Tư".
+   **Cỡ chữ** (ô gọn ["Cỡ" | số, bước 0,5, 5–30 | "pt"]) · **Căn lề** (ba ô Trái / Giữa / Phải
+   cùng kiểu ô căn 3×3, phím ← / →) · **Cách dưới** (ô gọn [biểu tượng khoảng cách dọc | số, bước
+   0,5, 0–20 | "pt"]). Hàng "Nhãn trước tên" chỉ có Cỡ chữ, thay hai ô kia bằng chữ "Chung dòng
+   với tên đại lý". Số điện thoại là một ô chữ như Địa chỉ. Hàng cuối "Thứ, ngày": ô lịch cố định
+   thay con mắt, nhãn "Luôn in", không nhập được (tự động), có đủ Cỡ chữ / Căn lề / Cách dưới (tới
+   bảng). Thẻ hẹp (< 660px) thì bỏ tên cột, ba ô xuống hàng dưới ô nhập. Không có dòng Fax, ghi
+   chú dưới "Tư".
 2. **Đài cần in** — radio "Tất cả đài quay trong ngày" | "Chọn đài theo thứ".
    Mỗi thứ một hàng; các đài là thẻ ngang theo thứ tự cột trên phiếu (số 1, 2, 3…),
    mỗi thẻ có tay nắm ⋮⋮ + ô chọn + tên. **Kéo thả** để đổi thứ tự (chỉ trong cùng

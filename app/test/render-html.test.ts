@@ -41,6 +41,15 @@ describe('renderHtml', () => {
     expect(count(html, /<section class="card">/g)).toBe(1)
   })
 
+  it('dòng đầu phiếu không căn giữa thì có text-align riêng', () => {
+    const s = agentSettings()
+    s.header.contact.align = 'left'
+    const { layout } = buildSheet(s, day26, { date: D26, paper: 'A6', blank: false })
+    const html = renderHtml(layout)
+    expect(count(html, /text-align:left">/g)).toBe(1)
+    expect(html).toMatch(/text-align:left"><span[^>]*>DĐ: 01212/)
+  })
+
   it('escape chữ người dùng nhập', () => {
     const s = agentSettings()
     s.header.name.value = '<b>A</b>'

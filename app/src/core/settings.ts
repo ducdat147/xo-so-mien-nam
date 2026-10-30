@@ -16,21 +16,33 @@ export const VALIGNS: readonly VAlign[] = ['top', 'center', 'bottom']
 /** Font phiếu mặc định (số đo của bản bash tính theo font này). */
 export const DEFAULT_FONT = 'Times New Roman'
 
+/** Chữ đầu phiếu: in đúng như đã gõ (phiếu không tự thêm "ĐC: " hay "DĐ: "). */
 export interface HeaderText {
   show: boolean
   size: number
   value: string
 }
 
-export interface HeaderSettings {
-  label: HeaderText
-  name: HeaderText
-  addr: HeaderText
-  phones: { show: boolean; size: number; values: string[] }
-  date: { show: boolean; size: number }
+/** Cỡ chữ, căn lề và khoảng cách của một dòng đầu phiếu. */
+export interface HeaderLineStyle {
+  size: number
+  align: Align
+  /** Khoảng cách tới dòng dưới (pt); với dòng thứ, ngày là khoảng cách tới bảng kết quả. */
+  afterPt: number
 }
 
-export type HeaderKey = keyof HeaderSettings
+export type HeaderLineText = HeaderText & HeaderLineStyle
+
+export interface HeaderSettings {
+  /** Nhãn trước tên: in chung dòng với tên, theo căn lề và khoảng cách của dòng tên. */
+  label: HeaderText
+  name: HeaderLineText
+  addr: HeaderLineText
+  /** Dòng liên hệ (số điện thoại), một dòng. */
+  contact: HeaderLineText
+  /** Dòng thứ, ngày: luôn in, luôn là dòng cuối ngay trên bảng. */
+  date: HeaderLineStyle
+}
 
 export interface StationPick {
   slug: string
@@ -92,8 +104,14 @@ export interface PrinterSettings {
   copies: number
 }
 
+/**
+ * 2: chữ đầu phiếu in nguyên văn, liên hệ là một dòng (30-10-2026). Bản 1 tự thêm "ĐC: " trước
+ * địa chỉ và in mỗi số thành "DĐ: …"; normalizeSettings chuyển sang để phiếu in ra như cũ.
+ */
+export const SETTINGS_VERSION = 2
+
 export interface Settings {
-  version: 1
+  version: typeof SETTINGS_VERSION
   header: HeaderSettings
   stations: StationSettings
   print: PrintSettings
@@ -104,6 +122,8 @@ export interface Settings {
 
 export const HEADER_SIZE_MIN = 5
 export const HEADER_SIZE_MAX = 30
+/** Khoảng cách tối đa dưới một dòng đầu phiếu (pt). */
+export const HEADER_AFTER_MAX = 20
 
 export function defaultByWeekday(): Record<string, StationPick[]> {
   const out: Record<string, StationPick[]> = {}
@@ -113,14 +133,14 @@ export function defaultByWeekday(): Record<string, StationPick[]> {
 
 export function defaultSettings(): Settings {
   return {
-    version: 1,
+    version: SETTINGS_VERSION,
     header: {
-      // Thông tin đại lý để trống: mỗi đại lý tự nhập ở màn Cài đặt
+      // Thông tin để trống: mỗi đại lý tự nhập ở màn Cài đặt. Căn lề, khoảng cách như phiếu bản bash.
       label: { show: true, size: 10, value: '' },
-      name: { show: true, size: 14, value: '' },
-      addr: { show: true, size: 10, value: '' },
-      phones: { show: true, size: 10, values: [] },
-      date: { show: true, size: 13 },
+      name: { show: true, size: 14, value: '', align: 'center', afterPt: 3 },
+      addr: { show: true, size: 10, value: '', align: 'center', afterPt: 0 },
+      contact: { show: true, size: 10, value: '', align: 'center', afterPt: 0 },
+      date: { size: 13, align: 'center', afterPt: 3 }
     },
     stations: { mode: 'all', byWeekday: defaultByWeekday(), shortNames: {} },
     print: {
@@ -179,9 +199,36 @@ export function normalizeColor(v: unknown, def: string): string {
 
 const headerSize = (v: unknown, def: number) => toNumber(v, def, HEADER_SIZE_MIN, HEADER_SIZE_MAX, 0.5)
 
+const headerAfter = (v: unknown, def: number) => toNumber(v, def, 0, HEADER_AFTER_MAX, 0.5)
+
 function headerText(v: unknown, def: HeaderText): HeaderText {
   const o = obj(v)
   return { show: bool(o.show, def.show), size: headerSize(o.size, def.size), value: str(o.value, def.value) }
+}
+
+function headerStyle(v: unknown, def: HeaderLineStyle): HeaderLineStyle {
+  const o = obj(v)
+  return { size: headerSize(o.size, def.size), align: oneOf(o.align, ALIGNS, def.align), afterPt: headerAfter(o.afterPt, def.afterPt) }
+}
+
+function headerLine(v: unknown, def: HeaderLineText): HeaderLineText {
+  return { ...headerText(v, def), ...headerStyle(v, def) }
+}
+
+/** Địa chỉ kiểu cũ (phiếu tự thêm "ĐC: ") → chữ in nguyên văn. */
+export const legacyAddrLine = (v: string) => {
+  const a = v.trim()
+  return a && `ĐC: ${a}`
+}
+
+/** Danh sách số kiểu cũ → một dòng như phiếu cũ in: "DĐ: …  DĐ: …". */
+export function legacyContactLine(phones: unknown): string {
+  return (Array.isArray(phones) ? phones : [])
+    .filter((p): p is string => typeof p === 'string')
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => `DĐ: ${p}`)
+    .join('  ')
 }
 
 function cellStyle(v: unknown, legacy: Obj, def: CellStyle): CellStyle {
@@ -215,20 +262,19 @@ export function normalizeSettings(raw: unknown): Settings {
   const r = obj(raw)
 
   const h = obj(r.header)
-  const phones = obj(h.phones)
-  const date = obj(h.date)
   const header: HeaderSettings = {
     label: headerText(h.label, def.header.label),
-    name: headerText(h.name, def.header.name),
-    addr: headerText(h.addr, def.header.addr),
-    phones: {
-      show: bool(phones.show, def.header.phones.show),
-      size: headerSize(phones.size, def.header.phones.size),
-      values: Array.isArray(phones.values)
-        ? phones.values.filter((p): p is string => typeof p === 'string')
-        : def.header.phones.values
-    },
-    date: { show: bool(date.show, def.header.date.show), size: headerSize(date.size, def.header.date.size) }
+    name: headerLine(h.name, def.header.name),
+    addr: headerLine(h.addr, def.header.addr),
+    contact: headerLine(h.contact, def.header.contact),
+    // date.show của bản cũ bỏ qua: dòng thứ, ngày luôn in
+    date: headerStyle(h.date, def.header.date)
+  }
+  // Bản cũ: thêm "ĐC: " vào địa chỉ, ghép danh sách số thành một dòng, để phiếu in ra như cũ
+  if (typeof r.version !== 'number' || r.version < SETTINGS_VERSION) {
+    header.addr.value = legacyAddrLine(header.addr.value)
+    const phones = obj(h.phones)
+    header.contact = { ...headerLine(phones, def.header.contact), value: legacyContactLine(phones.values) }
   }
 
   const s = obj(r.stations)
@@ -272,7 +318,7 @@ export function normalizeSettings(raw: unknown): Settings {
 
   const pr = obj(r.printer)
   return {
-    version: 1,
+    version: SETTINGS_VERSION,
     header,
     stations: { mode: oneOf(s.mode, ['all', 'pick'] as const, def.stations.mode), byWeekday, shortNames },
     print,

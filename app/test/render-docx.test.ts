@@ -94,9 +94,19 @@ describe('renderDocx', () => {
     expect(files['word/document.xml']).not.toMatch(/Arimo|Tinos/)
   })
 
-  it('ẩn hết đầu phiếu, khoảng cách 0: vẫn có đoạn ngăn giữa hai bảng', () => {
+  it('đầu phiếu căn từng dòng theo cài đặt', () => {
+    const s = agentSettings()
+    s.header.addr.align = 'left'
+    s.header.date.align = 'right'
+    const { layout } = buildSheet(s, day26, { date: D26, paper: 'A6', blank: false })
+    const xml = documentXml(layout)
+    const jc = (text: string) => xml.match(new RegExp(`<w:jc w:val="(\\w+)"/></w:pPr>(?:(?!</w:p>).)*${text}`))?.[1]
+    expect([jc('ĐỨC QUYẾT'), jc('ĐC: Chợ Tapao'), jc('DĐ: 01212'), jc('Thứ Hai')]).toEqual(['center', 'left', 'center', 'right'])
+  })
+
+  it('ẩn hết các dòng ẩn được, khoảng cách 0: vẫn có đoạn ngăn giữa hai bảng', () => {
     const s = defaultSettings()
-    for (const h of Object.values(s.header)) h.show = false
+    for (const k of ['label', 'name', 'addr', 'contact'] as const) s.header[k].show = false
     s.print.cardGapXCm = 0
     s.print.cardGapYCm = 0
     const { layout } = buildSheet(s, day26, { date: D26, paper: 'A4', blank: false })

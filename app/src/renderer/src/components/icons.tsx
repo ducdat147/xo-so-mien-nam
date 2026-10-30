@@ -131,6 +131,13 @@ export const FileExport = () => (
   </svg>
 )
 
+export const Calendar = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" {...base}>
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M16 3v4M8 3v4M3 10h18" />
+  </svg>
+)
+
 export const Close = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" {...base}>
     <path d="M6 6l12 12M18 6L6 18" />

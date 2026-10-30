@@ -57,8 +57,8 @@ export function SettingsScreen(props: SettingsScreenProps) {
         </div>
         <SettingsCard
           {...cards.card('h-daily')}
-          title="Thông tin đại lý"
-          desc="Các dòng in ở đầu mỗi phiếu. Bấm biểu tượng con mắt để hiện hoặc ẩn từng dòng, chỉnh cỡ chữ theo pt. Phần đầu phiếu cao lên thì bảng kết quả tự co lại cho vừa."
+          title="Thông tin"
+          desc="Các dòng in ở đầu mỗi phiếu, đúng như chữ đã gõ. Bấm con mắt để ẩn hoặc hiện từng dòng. Mỗi dòng chỉnh được cỡ chữ, căn lề và khoảng cách tới dòng dưới. Dòng thứ, ngày luôn in và tự đổi theo ngày xổ. Phần đầu phiếu cao lên thì bảng kết quả tự co lại cho vừa."
         >
           <AgentSection {...edit} dateLine={l.title} />
         </SettingsCard>

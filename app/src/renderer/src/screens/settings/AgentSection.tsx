@@ -1,43 +1,60 @@
-import type { HeaderKey, HeaderText } from '../../../../core/settings'
+import type { HeaderLineStyle, HeaderText } from '../../../../core/settings'
+import { HEADER_AFTER_MAX, HEADER_SIZE_MAX, HEADER_SIZE_MIN } from '../../../../core/settings'
 import { CompactInput } from '../../components/CompactInput'
-import { Close, Eye, EyeOff } from '../../components/icons'
+import { LineAlignPicker } from '../../components/LineAlignPicker'
+import { Calendar, Eye, EyeOff } from '../../components/icons'
 import type { DraftProps } from '../../useSettingsDraft'
 
-type FieldKind = 'text' | 'phones' | 'auto'
-interface AgentField {
-  key: HeaderKey
-  label: string
-  kind: FieldKind
-  placeholder?: string
-  hint?: string
-}
+type TextKey = 'label' | 'name' | 'addr' | 'contact'
+type RowKey = TextKey | 'date'
 
-const AGENT_FIELDS: AgentField[] = [
-  { key: 'label', label: 'Nhãn trước tên', kind: 'text' },
-  { key: 'name', label: 'Tên đại lý', kind: 'text' },
-  { key: 'addr', label: 'Địa chỉ', kind: 'text', hint: 'Phiếu tự thêm “ĐC: ” ở đầu.' },
-  { key: 'phones', label: 'Số điện thoại (DĐ)', kind: 'phones', hint: 'Mỗi số in thành “DĐ: …”, chung một dòng.' },
-  { key: 'date', label: 'Dòng thứ, ngày', kind: 'auto' }
+const TEXT_ROWS: { key: TextKey; label: string }[] = [
+  { key: 'label', label: 'Nhãn trước tên' },
+  { key: 'name', label: 'Tên đại lý' },
+  { key: 'addr', label: 'Địa chỉ' },
+  { key: 'contact', label: 'Số điện thoại' }
 ]
 
-/** Thẻ Thông tin đại lý: các dòng in ở đầu phiếu, mỗi dòng ẩn/hiện và chỉnh cỡ chữ riêng. */
+/**
+ * Thẻ Thông tin: các dòng in ở đầu phiếu, đúng chữ đã gõ. Mỗi dòng ẩn/hiện, cỡ chữ, căn lề, khoảng
+ * cách tới dòng dưới riêng. Dòng thứ, ngày luôn in, luôn là dòng cuối.
+ */
 export function AgentSection(props: DraftProps & {
   /** Dòng thứ, ngày của phiếu đang xem trước, ví dụ "Thứ Hai (26-10-2026)". */
   dateLine: string
 }) {
+  const { dateLine, ...edit } = props
   return (
-    <div role="list" className="agent-list">
-      {AGENT_FIELDS.map((f) => <AgentRow key={f.key} field={f} {...props} />)}
+    <div className="agent">
+      <div className="agent-head" aria-hidden="true">
+        <span>Cỡ chữ</span>
+        <span>Căn lề</span>
+        <span>Cách dưới</span>
+      </div>
+      <div role="list" className="agent-list">
+        {TEXT_ROWS.map((f) => <TextRow key={f.key} field={f} {...edit} />)}
+        <div role="listitem" className="agent-row">
+          <span className="eye fixed" title="Dòng thứ, ngày luôn in"><Calendar /></span>
+          <div className="agent-body">
+            <div className="agent-label">
+              <span className="field-label">Thứ, ngày</span>
+              <span className="badge small">Luôn in</span>
+            </div>
+            <div className="auto-line">Tự động theo ngày xổ, ví dụ “{dateLine}”</div>
+            <span className="hint">Luôn là dòng cuối, ngay trên bảng kết quả.</span>
+          </div>
+          <LineFormat rowKey="date" label="Thứ, ngày" {...edit} />
+        </div>
+      </div>
     </div>
   )
 }
 
-function AgentRow(props: DraftProps & { field: AgentField; dateLine: string }) {
-  const { field: f, draft, setDraft, dateLine } = props
+function TextRow(props: DraftProps & { field: (typeof TEXT_ROWS)[number] }) {
+  const { field: f, draft, setDraft } = props
   const h = draft.header[f.key]
   const id = `f-${f.key}`
-  const setHeader = (change: Partial<HeaderText & { values: string[] }>) =>
-    setDraft((d) => { Object.assign(d.header[f.key], change) })
+  const setText = (change: Partial<HeaderText>) => setDraft((d) => { Object.assign(d.header[f.key], change) })
 
   return (
     <div role="listitem" className={`agent-row${h.show ? '' : ' is-hidden'}`}>
@@ -47,64 +64,52 @@ function AgentRow(props: DraftProps & { field: AgentField; dateLine: string }) {
         aria-pressed={h.show}
         aria-label={`Hiện dòng ${f.label} trên phiếu`}
         title={h.show ? 'Đang hiện – bấm để ẩn' : 'Đang ẩn – bấm để hiện'}
-        onClick={() => setHeader({ show: !h.show })}
+        onClick={() => setText({ show: !h.show })}
       >
         {h.show ? <Eye /> : <EyeOff />}
       </button>
       <div className="agent-body">
         <div className="agent-label">
-          <label htmlFor={f.kind === 'phones' ? `${id}-0` : id} className="field-label">{f.label}</label>
+          <label htmlFor={id} className="field-label">{f.label}</label>
           {!h.show && <span className="badge small">Đang ẩn</span>}
         </div>
-        {f.kind === 'text' && (
-          <input
-            id={id}
-            className="input"
-            value={(h as HeaderText).value}
-            placeholder={f.placeholder}
-            onChange={(e) => setHeader({ value: e.target.value })}
-          />
-        )}
-        {f.kind === 'phones' && <PhoneInputs id={id} draft={draft} setDraft={setDraft} />}
-        {f.kind === 'auto' && <div id={id} className="auto-line">Tự động theo ngày xổ, ví dụ “{dateLine}”</div>}
-        {f.hint && <span className="hint">{f.hint}</span>}
+        <input id={id} className="input" value={h.value} onChange={(e) => setText({ value: e.target.value })} />
       </div>
-      <div className="agent-size">
-        <span className="field-label muted">Cỡ chữ</span>
-        <CompactInput id={`${id}-size`} kind="size" label={`cỡ chữ ${f.label}`} unit="pt"
-          title={`Cỡ chữ dòng ${f.label}`} value={h.size} min={5} max={30} step={0.5}
-          onChange={(v) => setHeader({ size: v ?? h.size })} />
-      </div>
+      <LineFormat rowKey={f.key} label={f.label} draft={draft} setDraft={setDraft} />
     </div>
   )
 }
 
-/** Danh sách số điện thoại: thêm / xoá từng số. */
-function PhoneInputs({ id, draft, setDraft }: DraftProps & { id: string }) {
+/** Cỡ chữ · căn lề · cách dưới của một dòng. Nhãn in chung dòng tên nên chỉ có cỡ chữ. */
+function LineFormat(props: DraftProps & { rowKey: RowKey; label: string }) {
+  const { rowKey, label, draft, setDraft } = props
+  const id = `f-${rowKey}`
+  const size = draft.header[rowKey].size
+  const setSize = (v: number | null) => setDraft((d) => { d.header[rowKey].size = v ?? size })
+  const sizeInput = (
+    <CompactInput id={`${id}-size`} kind="size" label={`cỡ chữ ${label}`} unit="pt"
+      title={`Cỡ chữ dòng ${label}`} value={size} min={HEADER_SIZE_MIN} max={HEADER_SIZE_MAX} step={0.5}
+      onChange={setSize} />
+  )
+  if (rowKey === 'label') {
+    return (
+      <div className="agent-fmt">
+        {sizeInput}
+        <span className="agent-same">Chung dòng với tên đại lý</span>
+      </div>
+    )
+  }
+
+  const line: HeaderLineStyle = draft.header[rowKey]
+  const setLine = (change: Partial<HeaderLineStyle>) => setDraft((d) => { Object.assign(d.header[rowKey], change) })
   return (
-    <div className="phones">
-      {draft.header.phones.values.map((p, i) => (
-        <div key={i} className="row">
-          <input
-            id={`${id}-${i}`}
-            className="input grow"
-            aria-label={`Số điện thoại ${i + 1}`}
-            value={p}
-            onChange={(e) => setDraft((d) => { d.header.phones.values[i] = e.target.value })}
-          />
-          <button
-            type="button"
-            className="btn square"
-            aria-label={`Xoá số điện thoại ${i + 1}`}
-            onClick={() => setDraft((d) => { d.header.phones.values.splice(i, 1) })}
-          >
-            <Close />
-          </button>
-        </div>
-      ))}
-      <button type="button" className="btn ghost" onClick={() => setDraft((d) => { d.header.phones.values.push('') })}>
-        + Thêm số
-      </button>
+    <div className="agent-fmt">
+      {sizeInput}
+      <LineAlignPicker label={`Căn lề dòng ${label}`} value={line.align} onChange={(align) => setLine({ align })} />
+      <CompactInput id={`${id}-after`} kind="gap-y" label={`khoảng cách dưới dòng ${label}`} unit="pt"
+        title={rowKey === 'date' ? 'Khoảng cách tới bảng kết quả' : 'Khoảng cách tới dòng dưới'}
+        value={line.afterPt} min={0} max={HEADER_AFTER_MAX} step={0.5}
+        onChange={(v) => setLine({ afterPt: v ?? line.afterPt })} />
     </div>
   )
 }
