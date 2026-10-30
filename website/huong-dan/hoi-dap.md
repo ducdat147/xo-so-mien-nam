@@ -26,12 +26,14 @@ thống thì để tỉ lệ 100% hoặc "Cỡ thực" (Actual size), đừng ch
 ## Màn Cài đặt ghi font "(máy chưa cài)"?
 
 Font đã chọn không có trên máy này. Hay gặp khi nhập file `.conf` từ máy khác. Phiếu vẫn in, nhưng
-bằng font thay thế. Chọn một font khác trong danh sách, hoặc cài font đó vào máy.
+bằng font thay thế. Ở tab Phiếu, chọn **Phiếu** trong danh sách bên trái rồi chọn font khác, hoặc cài
+font đó vào máy.
 
 ## Số trên phiếu nhỏ quá hoặc to quá?
 
-Ô **Cỡ** ở mục Font chữ & cỡ số để Auto thì app chọn cỡ lớn nhất vừa ô. Muốn số to hơn, thử tăng
-kích thước phiếu, bớt dòng ở đầu phiếu, hoặc giảm Padding của số. Gõ cỡ cố định to quá thì app tự hạ
+Mở Cài đặt, tab Phiếu, chọn **Số kết quả**. Ô **Cỡ** để Auto thì app chọn cỡ lớn nhất vừa ô. Muốn số
+to hơn, thử tăng kích thước phiếu, bớt dòng ở đầu hoặc cuối phiếu, hoặc giảm Padding của số. Chỉ muốn
+một giải to hơn (ví dụ ĐB) thì mở **Hàng giải**, chọn giải đó và tăng ô **Thêm**. Gõ cỡ cố định to quá thì app tự hạ
 cho khỏi tràn ô và ghi rõ cỡ đã dùng.
 
 ## Đổi máy tính, làm sao giữ mẫu phiếu?

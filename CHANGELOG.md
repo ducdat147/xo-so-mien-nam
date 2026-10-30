@@ -8,6 +8,20 @@
 
 Mỗi lần phát hành, thêm một mục mới lên trên cùng.
 
+## Chưa phát hành
+
+- Màn **Cài đặt** chia hai tab. Tab **Phiếu** là trình sửa phiếu kiểu Figma: bên trái là danh sách
+  các phần của phiếu, ở giữa là phiếu (bấm vào phần nào thì chọn phần đó), bên phải là các ô chỉnh.
+  Tab **Chung** gồm Đài cần in, Máy in, Lưu file (thêm định dạng mặc định).
+- Có **Hoàn tác / Làm lại** (nút trên màn, hoặc Ctrl/⌘+Z, Ctrl/⌘+Shift+Z) cho mọi thay đổi chưa lưu.
+- Mỗi dòng đầu phiếu gồm **Label** (chữ nhãn như "ĐC:", "DĐ:") và **Text**, có màu, đậm, nghiêng
+  riêng.
+- Thêm tối đa 5 **dòng chữ tự do** ở đầu phiếu và 5 dòng dưới bảng kết quả; kéo để đổi thứ tự các
+  dòng.
+- Bảng kết quả: màu viền; cỡ chữ "Giải" và tên giải; màu, đậm / nghiêng / gạch chân cho số.
+- Chỉnh riêng **từng hàng giải**: cỡ số to hơn / nhỏ hơn, màu số, màu tên giải, kiểu chữ, tô nền.
+- Cài đặt và file `.conf` của bản trước vẫn dùng được, phiếu in ra như cũ.
+
 ## 1.1.0 — 30-10-2026
 
 - Bấm In giờ mở bước **Xem trước khi in**: trang in đúng như ra giấy, chọn máy in và số tờ ngay

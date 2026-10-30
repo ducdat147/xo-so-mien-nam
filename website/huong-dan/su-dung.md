@@ -6,8 +6,8 @@ dải trạng thái và khung xem trước.
 ![Màn Kết quả](/images/ket-qua.webp){.shot}
 
 ::: tip Lần đầu dùng
-Thông tin đại lý trên đầu phiếu để trống sẵn. Bấm nút bánh răng ở góc trên bên phải, điền tên,
-địa chỉ, số điện thoại rồi bấm **Lưu cài đặt**. Chi tiết ở trang [Chỉnh mẫu phiếu](/huong-dan/cai-dat).
+Thông tin đại lý trên đầu phiếu để trống sẵn. Bấm nút bánh răng ở góc trên bên phải, ở tab
+**Phiếu** bấm vào đầu phiếu để điền tên, địa chỉ, số điện thoại rồi bấm **Lưu cài đặt**. Chi tiết ở trang [Chỉnh mẫu phiếu](/huong-dan/cai-dat).
 :::
 
 ## Chọn ngày xổ
