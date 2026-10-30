@@ -349,3 +349,55 @@ describe('cỡ số từng hàng giải', () => {
     expect(t.prizeRows['5']).toMatchObject({ numberColor: '000000', italic: false, underline: true })
   })
 })
+
+describe('dàn cụm phiếu theo cột / theo hàng', () => {
+  const day26 = parseResults(HTML_26, D26)
+  const at = (paper: 'A4' | 'A5' | 'A6', edit: (s: ReturnType<typeof agentSettings>) => void) => {
+    const s = agentSettings()
+    edit(s)
+    return buildSheet(s, day26, { date: D26, paper, blank: false }).layout
+  }
+  const usableW = PAPER_SPECS.A4.w - 2 * PAGE_MARGIN
+  const usableH = PAPER_SPECS.A4.h - 2 * PAGE_MARGIN
+
+  it('Hai bên: hai cột sát hai lề, khoảng giữa nới ra', () => {
+    const l = at('A4', (s) => { s.print.cardAlign = 'between' })
+    expect([l.margin.left, l.margin.right]).toEqual([PAGE_MARGIN, PAGE_MARGIN])
+    expect(l.gapX).toBe(usableW - 2 * l.cardW)
+    expect(l.cardAlign).toBe('center')
+  })
+
+  it('Đều: phần trống chia đều cho hai lề và khoảng giữa; không nhỏ hơn khoảng đã đặt', () => {
+    const l = at('A4', (s) => { s.print.cardAlign = 'even' })
+    const s3 = Math.trunc((usableW - 2 * l.cardW) / 3)
+    expect(l.gapX).toBe(s3)
+    expect(l.margin.left - PAGE_MARGIN).toBe(Math.trunc((usableW - 2 * l.cardW - s3) / 2))
+    expect(l.margin.left + l.margin.right + l.gapX + 2 * l.cardW).toBe(PAPER_SPECS.A4.w)
+    // phiếu rộng gần hết trang: khoảng đã đặt (0,6 cm) là tối thiểu
+    const wide = at('A4', (s) => { s.print.cardAlign = 'even'; s.print.cardWidthCm = null })
+    expect(wide.gapX).toBe(340)
+  })
+
+  it('theo hàng: khoảng trống phía trên và khoảng giữa hai hàng khi phiếu thấp', () => {
+    const base = at('A4', (s) => { s.print.cardHeightCm = 10 })
+    const free = usableH - 2 * base.cardH - base.gapY
+    expect(base.topPad).toBe(0)
+    expect(at('A4', (s) => { s.print.cardHeightCm = 10; s.print.cardAlignY = 'bottom' }).topPad).toBe(free)
+    expect(at('A4', (s) => { s.print.cardHeightCm = 10; s.print.cardAlignY = 'center' }).topPad).toBe(Math.trunc(free / 2))
+    const between = at('A4', (s) => { s.print.cardHeightCm = 10; s.print.cardAlignY = 'between' })
+    expect([between.topPad, between.gapY]).toEqual([0, base.gapY + free])
+    const even = at('A4', (s) => { s.print.cardHeightCm = 10; s.print.cardAlignY = 'even' })
+    expect(even.gapY).toBe(Math.trunc((usableH - 2 * base.cardH) / 3))
+    expect(2 * even.topPad + 2 * even.cardH + even.gapY).toBeLessThanOrEqual(usableH)
+  })
+
+  it('khổ một cột / một hàng: Hai bên, Đều như Giữa', () => {
+    const mid = at('A6', (s) => { s.print.cardAlign = 'center'; s.print.cardHeightCm = 10 })
+    for (const pos of ['between', 'even'] as const) {
+      const l = at('A6', (s) => { s.print.cardAlign = pos; s.print.cardAlignY = pos; s.print.cardHeightCm = 10 })
+      expect(l.header.indent).toEqual(mid.header.indent)
+      expect(l.cardAlign).toBe('center')
+      expect(l.topPad).toBe(Math.trunc((PAPER_SPECS.A6.h - 2 * PAGE_MARGIN - l.cardH) / 2))
+    }
+  })
+})

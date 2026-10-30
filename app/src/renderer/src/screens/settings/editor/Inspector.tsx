@@ -16,7 +16,7 @@ import {
   IconRows, IconTable, IconTag, IconTrash, IconType
 } from '../../../components/icons'
 import { LineAlignPicker } from '../../../components/LineAlignPicker'
-import { PagePositionPicker } from '../../../components/PagePositionPicker'
+import { CardPosPicker } from '../../../components/CardPosPicker'
 import { TextStyleToggles } from '../../../components/TextStyleToggles'
 import { useLocalFonts } from '../../../hooks'
 import { PAPER_OPTIONS } from '../../../labels'
@@ -279,15 +279,19 @@ function PageProps({ draft, setDraft }: DraftProps) {
             title="Khoảng cách dọc giữa hai hàng phiếu (A4)" value={p.cardGapYCm}
             onChange={(v) => setDraft((d) => { d.print.cardGapYCm = v ?? 0 })} />
         </div>
-        <p className="hint">Ngang: giữa 2 cột (A4, A5). Dọc: giữa 2 hàng (A4). Kéo trên biểu tượng để chỉnh nhanh.</p>
+        <p className="hint">Ngang: giữa 2 cột (A4, A5). Dọc: giữa 2 hàng (A4). Khi dàn Hai bên / Đều, đây là khoảng cách tối thiểu.</p>
       </Sec>
       <Sec title="Vị trí cụm phiếu trên trang">
-        <PagePositionPicker id="l-calign" paper={p.paper} value={p.cardAlign}
+        <span className="insp-sub">Theo cột</span>
+        <CardPosPicker label="Dàn cụm phiếu theo cột" axis="x" paper={p.paper} value={p.cardAlign}
           onChange={(v) => setDraft((d) => { d.print.cardAlign = v })} />
+        <span className="insp-sub">Theo hàng</span>
+        <CardPosPicker label="Dàn cụm phiếu theo hàng" axis="y" paper={p.paper} value={p.cardAlignY}
+          onChange={(v) => setDraft((d) => { d.print.cardAlignY = v })} />
         <p className="hint">
-          {p.paper === 'A6'
-            ? 'Khổ A6 chỉ có một phiếu: lệch trái / giữa / phải trong phần trống của trang.'
-            : 'Phần giấy còn trống dồn sang phía đối diện; chọn Giữa để chia đều hai bên.'}
+          Hai bên: cụm phiếu sát hai lề, phần trống dồn vào giữa các phiếu. Đều: phần trống chia đều cho lề và giữa
+          các phiếu. Theo hàng chỉ khác khi phiếu thấp hơn mức tối đa; khổ chỉ một cột / một hàng thì Hai bên, Đều
+          như Giữa.
         </p>
       </Sec>
       <p className="hint">Bấm vào một phần trên phiếu, hoặc chọn trong cây bên trái, để chỉnh riêng phần đó.</p>

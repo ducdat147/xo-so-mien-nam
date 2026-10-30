@@ -127,12 +127,19 @@ export function documentXml(l: SheetLayout): string {
   const tbl = tableXml(l) + linesXml(l, l.footer.lines)
   const colBreak = '<w:r><w:br w:type="column"/></w:r>'
   const gapPara = spacerPara(l.gapY)
+  // Dàn theo hàng: đoạn đệm phía trên phiếu đầu mỗi cột
+  const topPara = l.topPad > 0 ? spacerPara(l.topPad) : ''
   let body = ''
   for (let c = 1; c <= l.copies; c++) {
     let hx = header
-    if (c > 1) {
-      if ((c - 1) % l.nrow === 0) hx = hx.replace('</w:pPr>', `</w:pPr>${colBreak}`) // sang cột mới
-      else if (l.gapY > 0) hx = gapPara + hx // khoảng cách giữa 2 phiếu trong cột
+    const newCol = c === 1 || (c - 1) % l.nrow === 0
+    if (newCol) {
+      const first = topPara || hx
+      // sang cột mới: ngắt cột nằm trong đoạn đầu tiên của cột
+      const withBreak = c > 1 ? first.replace('</w:pPr>', `</w:pPr>${colBreak}`) : first
+      hx = topPara ? withBreak + hx : withBreak
+    } else if (l.gapY > 0) {
+      hx = gapPara + hx // khoảng cách giữa 2 phiếu trong cột
     }
     body += hx + tbl
   }

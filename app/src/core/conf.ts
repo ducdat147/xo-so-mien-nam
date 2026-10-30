@@ -8,7 +8,7 @@
 
 import { WEEKDAY_SHORT } from './dates'
 import {
-  ALIGNS, BUILTIN_LINES, FORMATS, FREE_LINES_MAX, HEADER_AFTER_MAX, newFreeLine, HEADER_SIZE_MAX, HEADER_SIZE_MIN, LABEL_SIZE_MAX, LABEL_SIZE_MIN, legacyAddrLine,
+  ALIGNS, BUILTIN_LINES, CARD_POS_X, CARD_POS_Y, FORMATS, FREE_LINES_MAX, HEADER_AFTER_MAX, newFreeLine, HEADER_SIZE_MAX, HEADER_SIZE_MIN, LABEL_SIZE_MAX, LABEL_SIZE_MIN, legacyAddrLine,
   legacyContactLine, normalizeColor, normalizeFontName, normalizeSettings, PAPERS, ROW_DELTA_MAX, ROW_DELTA_MIN,
   SETTINGS_VERSION, toNumber, VALIGNS, defaultSettings,
   type Align, type CellStyle, type FreeLine, type HeaderLineText, type HeaderText, type OutputFormat, type Paper, type PrizeRowStyle, type Settings,
@@ -124,6 +124,12 @@ export function importConf(text: string, base: Settings = defaultSettings()): Co
   }
   /** COLOR_ACCENT của bản 2: số ĐB in màu này; trùng màu số thì để ĐB theo màu số. */
   let legacyAccent: string | null = null
+  const setOneOf = <T extends string>(k: string, v: string, list: readonly T[], apply: (a: T) => void) => {
+    const a = v.trim().toLowerCase() as T
+    if (!list.includes(a)) return bad(k)
+    apply(a)
+    ok()
+  }
   const setAlign = (k: string, v: string, apply: (a: Align) => void) => {
     const a = v.toLowerCase() as Align
     if (!ALIGNS.includes(a)) return bad(k)
@@ -286,7 +292,8 @@ export function importConf(text: string, base: Settings = defaultSettings()): Co
       case 'CARD_GAP_CM': setNum(key, v, 0, 5, (n) => { s.print.cardGapXCm = n; s.print.cardGapYCm = n }); break
       case 'CARD_GAP_X_CM': setNum(key, v, 0, 5, (n) => { s.print.cardGapXCm = n }); break
       case 'CARD_GAP_Y_CM': setNum(key, v, 0, 5, (n) => { s.print.cardGapYCm = n }); break
-      case 'CARD_ALIGN': setAlign(key, v, (a) => { s.print.cardAlign = a }); break
+      case 'CARD_ALIGN': setOneOf(key, v, CARD_POS_X, (a) => { s.print.cardAlign = a }); break
+      case 'CARD_ALIGN_Y': setOneOf(key, v, CARD_POS_Y, (a) => { s.print.cardAlignY = a }); break
       case 'NUMBER_FONT_PT': setNumAuto(key, v, 6, 30, (n) => { s.print.numberFontPt = n }); break
       case 'FONT':
         s.print.font = normalizeFontName(v, s.print.font)
@@ -445,8 +452,11 @@ export function exportConf(settings: Settings, meta: { appName: string; version:
     '# Khoảng cách giữa các phiếu (cm): X = ngang, giữa 2 cột; Y = dọc, giữa 2 hàng',
     `CARD_GAP_X_CM=${num(p.cardGapXCm)}`,
     `CARD_GAP_Y_CM=${num(p.cardGapYCm)}`,
-    '# Vị trí cụm phiếu trên trang: left | center | right',
+    '# Dàn cụm phiếu trên trang. CARD_ALIGN (theo cột): left | center | right | between | even;',
+    '# CARD_ALIGN_Y (theo hàng): top | center | bottom | between | even. between = sát hai lề, phần trống',
+    '# dồn vào giữa các phiếu; even = chia đều cho lề và giữa. Khoảng cách ở trên là tối thiểu.',
     `CARD_ALIGN=${p.cardAlign}`,
+    `CARD_ALIGN_Y=${p.cardAlignY}`,
     '# Font: tên font đã cài trên máy, ví dụ Times New Roman, Arial. Cỡ số kết quả (pt): auto = lớn nhất vừa phiếu',
     `FONT=${q(p.font)}`,
     `NUMBER_FONT_PT=${auto(p.numberFontPt)}`,

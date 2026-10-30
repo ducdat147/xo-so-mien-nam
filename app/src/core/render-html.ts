@@ -115,7 +115,8 @@ function styles(l: SheetLayout, mode: 'sheet' | 'card'): string {
 .page{width:${l.page.widthMm}mm;height:${l.page.heightMm}mm;box-sizing:border-box;overflow:hidden;
 padding:${pt(l.margin.top)} ${pt(l.margin.right)} ${pt(l.margin.bottom)} ${pt(l.margin.left)};display:flex;column-gap:${pt(l.gapX)}}
 .col{flex:none;width:${pt(l.colW)};display:flex;flex-direction:column}
-.gap{flex:none;height:${pt(l.gapY)}}`
+.gap{flex:none;height:${pt(l.gapY)}}
+.top{flex:none}`
       : `.page{width:${pt(l.cardW)};height:${pt(l.cardH)};overflow:hidden}`
   return `${page}
 html,body{margin:0;padding:0;background:#fff}
@@ -147,7 +148,9 @@ export function renderHtml(l: SheetLayout, opts: HtmlOptions = {}): string {
     for (let c = 0; c < l.ncol; c++) {
       const cards: string[] = []
       for (let r = 0; r < l.nrow; r++) cards.push(cardHtml(l, true))
-      cols.push(`<div class="col">${cards.join(l.gapY > 0 ? '<div class="gap"></div>' : '')}</div>`)
+      // Dàn theo hàng: khoảng trống phía trên phiếu đầu mỗi cột
+      const top = l.topPad > 0 ? `<div class="top" style="height:${pt(l.topPad)}"></div>` : ''
+      cols.push(`<div class="col">${top}${cards.join(l.gapY > 0 ? '<div class="gap"></div>' : '')}</div>`)
     }
     body = `<div class="page">${cols.join('')}</div>`
   }

@@ -141,6 +141,8 @@ export interface SheetLayout {
   gapX: number
   /** Khoảng cách dọc giữa hai hàng phiếu (giữa 2 bản trong cùng cột). */
   gapY: number
+  /** Khoảng trống phía trên phiếu đầu mỗi cột (dàn theo hàng). */
+  topPad: number
   /** Bề ngang một cột chữ trên trang (nhiều cột: đúng bằng cardW). */
   colW: number
   cardW: number
@@ -315,14 +317,27 @@ export function computeLayout(input: LayoutInput): SheetLayout {
     cardW = colW
   }
 
-  // Nhiều cột: mỗi cột đúng bằng bề ngang phiếu, phần dư dồn vào lề theo cardAlign
+  // Dàn đều hay không thì phiếu (bảng, đầu phiếu) vẫn căn theo một phía khi trang chỉ một cột
+  const posX = ps.cardAlign
+  const alignX: Align = posX === 'between' || posX === 'even' ? 'center' : posX
+  // Nhiều cột: mỗi cột đúng bằng bề ngang phiếu, phần dư dồn vào lề theo cardAlign, hoặc dàn đều
+  // (khoảng cách giữa hai cột nới ra, không nhỏ hơn khoảng đã đặt)
   let marginL = margin
   let marginR = margin
+  let gapXUsed = gapX
   if (ncol > 1) {
     colW = cardW
     const left = usableW - ncol * cardW - (ncol - 1) * gapX
-    if (ps.cardAlign === 'left') marginR = margin + left
-    else if (ps.cardAlign === 'right') marginL = margin + left
+    if (posX === 'between') {
+      gapXUsed = gapX + idiv(left, ncol - 1)
+      marginR = margin + left - (gapXUsed - gapX) * (ncol - 1)
+    } else if (posX === 'even') {
+      gapXUsed = Math.max(gapX, idiv(usableW - ncol * cardW, ncol + 1))
+      const side = usableW - ncol * cardW - (ncol - 1) * gapXUsed
+      marginL = margin + idiv(side, 2)
+      marginR = margin + side - idiv(side, 2)
+    } else if (alignX === 'left') marginR = margin + left
+    else if (alignX === 'right') marginL = margin + left
     else {
       marginL = margin + idiv(left, 2)
       marginR = margin + left - idiv(left, 2)
@@ -331,8 +346,8 @@ export function computeLayout(input: LayoutInput): SheetLayout {
   // Một cột: thụt lề phần đầu phiếu để nằm đúng trên bảng
   const spare = colW - cardW
   const indent =
-    ps.cardAlign === 'left' ? { left: 0, right: spare }
-      : ps.cardAlign === 'right' ? { left: spare, right: 0 }
+    alignX === 'left' ? { left: 0, right: spare }
+      : alignX === 'right' ? { left: spare, right: 0 }
         : { left: idiv(spare, 2), right: idiv(spare, 2) }
   // Chiều cao phiếu: tự động = cao hết chỗ trống; tự chọn thì không vượt quá chỗ trống
   const cardHMax = idiv(usableH - (nrow - 1) * gapY, nrow)
@@ -349,6 +364,23 @@ export function computeLayout(input: LayoutInput): SheetLayout {
     } else {
       cardH = want
     }
+  }
+
+  // Dàn theo hàng: khoảng trống phía trên cụm phiếu và khoảng cách giữa hai hàng (không nhỏ hơn khoảng đã đặt)
+  const posY = ps.cardAlignY
+  const freeY = Math.max(0, usableH - nrow * cardH - (nrow - 1) * gapY)
+  let gapYUsed = gapY
+  let topPad = 0
+  if (nrow > 1 && posY === 'between') {
+    gapYUsed = gapY + idiv(freeY, nrow - 1)
+  } else if (nrow > 1 && posY === 'even') {
+    gapYUsed = Math.max(gapY, idiv(usableH - nrow * cardH, nrow + 1))
+    topPad = idiv(usableH - nrow * cardH - (nrow - 1) * gapYUsed, 2)
+  } else if (posY === 'bottom') {
+    topPad = freeY
+  } else if (posY !== 'top') {
+    // giữa; trang một hàng thì Hai bên / Đều như giữa
+    topPad = idiv(freeY, 2)
   }
 
   // --- Phần đầu phiếu
@@ -444,13 +476,14 @@ export function computeLayout(input: LayoutInput): SheetLayout {
     ncol,
     nrow,
     copies: ncol * nrow,
-    gapX,
-    gapY,
+    gapX: gapXUsed,
+    gapY: gapYUsed,
+    topPad,
     colW,
     cardW,
     cardH,
     cardHMax,
-    cardAlign: ps.cardAlign,
+    cardAlign: alignX,
     header: { lines, height: headerH, indent: spare > 0 ? indent : { left: 0, right: 0 } },
     footer: { lines: footLines, height: footerH },
     table: {

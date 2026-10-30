@@ -101,7 +101,14 @@ Bỏ chọn (bấm ra ngoài phiếu) để chỉnh trang giấy:
 
 - **Khổ giấy mặc định** mỗi lần mở app. Ở màn Kết quả vẫn đổi được cho từng lần in.
 - **Khoảng cách giữa các phiếu**: ngang (giữa hai cột) và dọc (giữa hai hàng), mặc định 0,6 cm.
-- **Vị trí cụm phiếu trên trang**: Trái, Giữa hoặc Phải. Phần giấy còn trống dồn sang phía đối diện.
+- **Vị trí cụm phiếu trên trang**, chọn riêng **theo cột** (ngang: Trái, Giữa, Phải) và **theo hàng**
+  (dọc: Trên, Giữa, Dưới). Mỗi chiều có thêm hai cách dàn:
+  - **Hai bên**: các phiếu sát hai lề giấy, phần trống dồn vào giữa các phiếu.
+  - **Đều**: phần trống chia đều cho lề và khoảng giữa các phiếu.
+
+  Khi dàn Hai bên hoặc Đều, khoảng cách ở trên là khoảng nhỏ nhất, app chỉ nới rộng thêm. Theo hàng
+  chỉ thấy khác khi phiếu thấp hơn mức tối đa (đặt ô Cao). Khổ chỉ có một cột hoặc một hàng thì Hai
+  bên, Đều in như Giữa.
 
 ::: tip Chỉnh ô số cho nhanh
 Mọi ô số trong app đều gõ được số (nhận cả dấu phẩy). Bấm <kbd>↑</kbd> <kbd>↓</kbd> để tăng giảm,

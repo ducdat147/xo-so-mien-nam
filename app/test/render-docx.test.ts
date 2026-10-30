@@ -5,6 +5,7 @@ import { XMLValidator } from 'fast-xml-parser'
 import { describe, expect, it } from 'vitest'
 import { parseResults } from '../src/core/parse'
 import { documentXml, renderDocx } from '../src/core/render-docx'
+import { renderHtml } from '../src/core/render-html'
 import { importConf } from '../src/core/conf'
 import { defaultSettings, newFreeLine, type Paper, type Settings } from '../src/core/settings'
 import { buildSheet } from '../src/core/sheet'
@@ -92,6 +93,22 @@ describe('dòng tự do', () => {
     expect(l.footer.height).toBeGreaterThan(0)
     expect(l.table.available).toBe(plain.cardH - l.header.height - l.footer.height - 160)
     expect(l.table.available).toBeLessThan(plain.table.available)
+  })
+})
+
+describe('dàn cụm phiếu theo hàng', () => {
+  it('đoạn đệm ở đầu mỗi cột, ngắt cột nằm trong đoạn đệm; HTML có khoảng trống đầu cột', () => {
+    const s = agentSettings()
+    s.print.cardHeightCm = 10
+    s.print.cardAlignY = 'even'
+    const { layout } = buildSheet(s, day26, { date: D26, paper: 'A4', blank: false })
+    const xml = documentXml(layout)
+    const pad = `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="${layout.topPad}" w:lineRule="exact"/></w:pPr>`
+    expect(xml).toContain(`<w:body>${pad}</w:p>`)
+    expect(xml).toContain(`${pad}<w:r><w:br w:type="column"/></w:r></w:p>`)
+    expect(xml.match(/w:type="column"/g)).toHaveLength(1)
+    expect(XMLValidator.validate(xml)).toBe(true)
+    expect(renderHtml(layout).match(/<div class="top" style="height:/g)).toHaveLength(2)
   })
 })
 

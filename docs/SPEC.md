@@ -284,7 +284,11 @@ mặc định của nhãn, địa chỉ, DĐ là **10 pt** (chủ dự án chỉ
     "cardHeightCm": null,                     // null = tự động (cao hết chỗ trống); số = cm, không vượt chỗ trống
     "cardGapXCm": 0.6,                        // khoảng cách ngang giữa 2 cột phiếu (A4, A5)
     "cardGapYCm": 0.6,                        // khoảng cách dọc giữa 2 hàng phiếu (A4); bản cũ "cardGapCm" → cả hai
-    "cardAlign": "left",                      // left | center | right — vị trí cụm phiếu trên trang
+    // Dàn cụm phiếu (chủ dự án duyệt 30-10-2026). Theo cột: left | center | right | between | even;
+    // theo hàng: top | center | bottom | between | even. between = sát hai lề, phần trống dồn vào
+    // giữa các phiếu; even = chia đều cho lề và giữa. cardGapX/YCm là khoảng tối thiểu.
+    "cardAlign": "left",
+    "cardAlignY": "top",
     // Chữ trong bảng ("Giải", tên giải, tên đài) và số kết quả: padding (cm) + căn 9 vị trí.
     // Bản cũ alignText / alignNumber / numberPadRightCm tự chuyển sang đây (chủ dự án đổi 29-10-2026).
     "textCell":   { "padXCm": 0.05, "padYCm": 0.05, "alignX": "center", "alignY": "top" },
@@ -330,7 +334,7 @@ nhóm có chú thích tiếng Việt, để **nhập lại ra y nguyên** (có t
 - Đài: `STATIONS_MODE` (all | pick), `STATIONS_ORDER_T2…T7/CN` (thứ tự cột, `-ma-dai` = không in),
   `NAME_<slug>` (xuất đủ 21 đài).
 - Bản in: `PAPER`, `OUTPUT_FORMAT`, `CARD_WIDTH_CM` / `CARD_HEIGHT_CM` (số hoặc `auto`),
-  `CARD_GAP_X_CM`, `CARD_GAP_Y_CM`, `CARD_ALIGN`, `FONT`, `NUMBER_FONT_PT` (số hoặc `auto`),
+  `CARD_GAP_X_CM`, `CARD_GAP_Y_CM`, `CARD_ALIGN`, `CARD_ALIGN_Y`, `FONT`, `NUMBER_FONT_PT` (số hoặc `auto`),
   `TEXT_PAD_X_CM`, `TEXT_PAD_Y_CM`, `TEXT_ALIGN`, `NUMBER_PAD_X_CM`, `NUMBER_PAD_Y_CM`,
   `NUMBER_ALIGN` (`<dọc>-<ngang>`, ví dụ `center-right`).
 - Màu, kiểu chữ (`CONF_VERSION=3`): mỗi dòng đầu phiếu thêm `_COLOR` (hex), `_BOLD`, `_ITALIC` (1/0),
@@ -378,8 +382,16 @@ mô tả này ⇒ PDF và Word giống nhau. Chuẩn tham chiếu: bản chụp 
 - `cardW` = cardWidthCm × 567, tối đa bằng `(usableW − (ncol−1)·gap) / ncol`
   (vượt thì cảnh báo và dùng tối đa; `cardWidthCm = null` = Auto = dùng tối đa, không cảnh báo).
 - Nhiều cột: mỗi cột rộng đúng `cardW`; phần dư bề ngang dồn vào lề theo
-  `cardAlign` (left → lề phải, right → lề trái, center → chia đôi). Một cột:
-  phần đầu phiếu thụt lề trái/phải theo `cardAlign`, bảng căn theo `cardAlign`.
+  `cardAlign` (left → lề phải, right → lề trái, center → chia đôi). `between`: lề giữ nguyên,
+  `gapX` thật = gapX + phần dư. `even`: `gapX` thật = max(gapX, ⌊(usableW − ncol·cardW)/(ncol+1)⌋),
+  phần còn lại chia đôi cho hai lề. Word: `w:cols w:space` = gapX thật, `w:pgMar` = lề thật. Một
+  cột: phần đầu phiếu thụt lề trái/phải theo `cardAlign`, bảng căn theo `cardAlign` (`between`,
+  `even` tính như `center`).
+- Theo hàng (`cardAlignY`), phần trống dọc `freeY = usableH − nrow·cardH − (nrow−1)·gapY`: top → 0;
+  bottom → `topPad = freeY`; center → `freeY/2`; `between` (nhiều hàng) → `gapY` thật = gapY + freeY;
+  `even` (nhiều hàng) → `gapY` thật = max(gapY, ⌊(usableH − nrow·cardH)/(nrow+1)⌋), `topPad` = nửa
+  phần còn lại; một hàng thì `between`, `even` như center. `topPad` là đoạn đệm (Word: đoạn
+  `w:line exact`, chứa luôn ngắt cột) hoặc khối `.top` (HTML) ở đầu mỗi cột. Mặc định top → không đổi.
 - `cardHMax = (usableH − (nrow−1)·gap) / nrow`. `cardH = cardHMax` khi `cardHeightCm = null`
   (tự động); có `cardHeightCm` thì `cardH = cardHeightCm × 567`, vượt `cardHMax` thì cảnh báo và
   dùng `cardHMax` (chủ dự án thêm 28-10-2026). Phiếu thấp hơn thì phần bảng (§6.4) tự co, cỡ số
@@ -554,7 +566,9 @@ thu gọn sẵn) › Cuối phiếu (Dòng cuối 1 … n). Dấu + ở Đầu p
   Trang HTML xem trước bật `parts` (`data-part` cho từng phần); viền vẽ ngoài iframe. Dưới phiếu ghi
   khổ, cỡ phiếu, cỡ số đang dùng, ngày của số.
 - Phải (300 px) **Thuộc tính** của phần đang chọn, đầu cột có biểu tượng, tên, loại, con mắt (dòng):
-  - Không chọn gì: Khổ giấy mặc định, Khoảng cách giữa các phiếu, Vị trí cụm phiếu trên trang.
+  - Không chọn gì: Khổ giấy mặc định, Khoảng cách giữa các phiếu, Vị trí cụm phiếu trên trang (hai
+    hàng 5 hình trang giấy: Theo cột Trái / Giữa / Phải / Hai bên / Đều, Theo hàng Trên / Giữa /
+    Dưới / Hai bên / Đều; vẽ theo khổ giấy, phím mũi tên để đổi).
   - Phiếu: Rộng / Cao (Auto như cũ, gợi ý mức tối đa), Font chữ (font đã cài, "máy chưa cài").
   - Nhóm Dòng: Căn lề + khoảng cách tới dòng dưới (của cả dòng). Label / Text: ô Chữ + Cỡ chữ.
   - Đầu phiếu / Cuối phiếu: nút "Thêm dòng tự do". Dòng cuối phiếu trừ vào chiều cao bảng (§6.4:

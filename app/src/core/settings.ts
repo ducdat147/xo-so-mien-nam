@@ -13,6 +13,15 @@ export const FORMATS: readonly OutputFormat[] = ['pdf', 'docx', 'both']
 export const ALIGNS: readonly Align[] = ['left', 'center', 'right']
 export type VAlign = 'top' | 'center' | 'bottom'
 export const VALIGNS: readonly VAlign[] = ['top', 'center', 'bottom']
+/**
+ * Dàn cụm phiếu trên trang theo cột (ngang) / theo hàng (dọc): sát một phía, giữa, hoặc
+ * between = sát hai lề, phần trống dồn vào giữa các phiếu; even = phần trống chia đều cho lề và
+ * giữa các phiếu. Khoảng cách đã đặt (cardGapX/YCm) là tối thiểu.
+ */
+export type CardPosX = Align | 'between' | 'even'
+export type CardPosY = VAlign | 'between' | 'even'
+export const CARD_POS_X: readonly CardPosX[] = ['left', 'center', 'right', 'between', 'even']
+export const CARD_POS_Y: readonly CardPosY[] = ['top', 'center', 'bottom', 'between', 'even']
 /** Font phiếu mặc định (số đo của bản bash tính theo font này). */
 export const DEFAULT_FONT = 'Times New Roman'
 
@@ -130,7 +139,10 @@ export interface PrintSettings {
   cardGapXCm: number
   /** Khoảng cách dọc giữa hai hàng phiếu (cm). */
   cardGapYCm: number
-  cardAlign: Align
+  /** Dàn cụm phiếu theo cột (ngang). */
+  cardAlign: CardPosX
+  /** Dàn cụm phiếu theo hàng (dọc); chỉ khác "top" khi phiếu thấp hơn chỗ trống. */
+  cardAlignY: CardPosY
   /** Chữ trong bảng: "Giải", tên giải, tên đài. */
   textCell: CellStyle
   /** Số kết quả. */
@@ -263,6 +275,7 @@ export function defaultSettings(): Settings {
       cardGapXCm: 0.6,
       cardGapYCm: 0.6,
       cardAlign: 'left',
+      cardAlignY: 'top',
       textCell: { padXCm: 0.05, padYCm: 0.05, alignX: 'center', alignY: 'top' },
       numberCell: { padXCm: 0.3, padYCm: 0.05, alignX: 'right', alignY: 'center' },
       numberFontPt: null,
@@ -487,7 +500,8 @@ export function normalizeSettings(raw: unknown): Settings {
     // Bản cũ chỉ có một khoảng cách chung (cardGapCm): dùng cho cả hai chiều
     cardGapXCm: toNumber(p.cardGapXCm ?? p.cardGapCm, def.print.cardGapXCm, 0, 5),
     cardGapYCm: toNumber(p.cardGapYCm ?? p.cardGapCm, def.print.cardGapYCm, 0, 5),
-    cardAlign: oneOf(p.cardAlign, ALIGNS, def.print.cardAlign),
+    cardAlign: oneOf(p.cardAlign, CARD_POS_X, def.print.cardAlign),
+    cardAlignY: oneOf(p.cardAlignY, CARD_POS_Y, def.print.cardAlignY),
     // Bản cũ có alignText / alignNumber / numberPadRightCm riêng lẻ: chuyển sang dạng ô
     textCell: cellStyle(p.textCell, { alignX: p.alignText }, def.print.textCell),
     numberCell: cellStyle(p.numberCell, { alignX: p.alignNumber, padXCm: p.numberPadRightCm }, def.print.numberCell),

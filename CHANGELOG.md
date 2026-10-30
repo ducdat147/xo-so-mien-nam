@@ -20,6 +20,9 @@ Mỗi lần phát hành, thêm một mục mới lên trên cùng.
   dòng.
 - Bảng kết quả: màu viền; cỡ chữ "Giải" và tên giải; màu, đậm / nghiêng / gạch chân cho số.
 - Chỉnh riêng **từng hàng giải**: cỡ số to hơn / nhỏ hơn, màu số, màu tên giải, kiểu chữ, tô nền.
+- **Vị trí cụm phiếu trên trang** chọn riêng theo cột và theo hàng, thêm hai cách dàn: **Hai bên**
+  (phiếu sát hai lề, phần trống dồn vào giữa) và **Đều** (phần trống chia đều cho lề và giữa các
+  phiếu). Khoảng cách giữa các phiếu đã đặt là khoảng tối thiểu.
 - Cài đặt và file `.conf` của bản trước vẫn dùng được, phiếu in ra như cũ.
 
 ## 1.1.0 — 30-10-2026

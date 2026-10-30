@@ -312,7 +312,7 @@ describe('exportConf', () => {
     s.print = {
       ...s.print,
       paper: 'A5', format: 'both', cardWidthCm: null, cardHeightCm: 11.5, cardGapXCm: 1, cardGapYCm: 0.2,
-      cardAlign: 'center', numberFontPt: 13.5, font: 'Arial',
+      cardAlign: 'even', cardAlignY: 'between', numberFontPt: 13.5, font: 'Arial',
       textCell: { padXCm: 0.15, padYCm: 0.1, alignX: 'left', alignY: 'center' },
       numberCell: { padXCm: 0.25, padYCm: 0.05, alignX: 'center', alignY: 'bottom' },
       borderColor: '7F8FB5',
