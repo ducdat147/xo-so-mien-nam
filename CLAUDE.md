@@ -56,6 +56,9 @@ nhập/xuất cấu hình bằng file `.conf` (KEY=VALUE), nhận cả khoá ki�
   Cột trái màn Kết quả chia nhóm **In phiếu** và **Lưu file** riêng; Khổ giấy và "In phiếu trống"
   nằm đầu nhóm In phiếu. Dải trạng thái kết quả nằm bên phải, trên khung xem trước (chủ dự án
   chuyển cả ba 29-10-2026). Code in ở `main/print.ts`.
+- Màn Cài đặt hai tab (duyệt Figma 30-10-2026): **Phiếu** là trình sửa phiếu kiểu Figma (cây thành
+  phần | phiếu bấm chọn được | thuộc tính), **Chung** là Đài cần in, Máy in, Lưu file. Có hoàn tác.
+  Làm ba đợt; đợt 1 không đổi dữ liệu. Mặc định phiếu phải in y như cũ ở mọi đợt (SPEC §7.2).
 
 ## Đổi giao diện / thêm tính năng: duyệt trên Figma trước (chủ dự án chốt 29-10-2026)
 

@@ -498,58 +498,49 @@ Bên phải:
   dùng font phiếu đã chọn trong Cài đặt, cùng chuỗi `font-family` với trang in (máy thiếu font thì
   cùng rơi về font dự phòng như bản in; chủ dự án yêu cầu 29-10-2026).
 
-### 7.2 Màn Cài đặt (`design/CaiDat.dc.html`)
+### 7.2 Màn Cài đặt (Figma "Xo So App", trang Màn hình)
 
-Cột trái là các thẻ, **thu gọn / mở rộng được** (bấm tiêu đề hoặc Tab + Enter, mũi tên chỉ trạng
-thái; nút "Thu gọn tất cả / Mở rộng tất cả" ở đầu; nhớ trạng thái trong máy cho lần mở sau). Cột
-phải (≈340px) là **Xem trước phiếu** (một bản, cập nhật
-ngay khi sửa; dùng kết quả gần nhất đã tải, nếu chưa có thì dữ liệu mẫu 26-10-2026)
-kèm dòng "Cỡ số kết quả hiện tại: 13,5 pt (tự chỉnh để vừa phiếu)".
+Chủ dự án duyệt trên Figma ngày 30-10-2026: màn chia hai tab **Phiếu** | **Chung** (thanh tab dưới
+thanh trên; bên phải có nút **Hoàn tác** / **Làm lại**, phím Ctrl/⌘+Z, Ctrl/⌘+Shift+Z hoặc Ctrl+Y,
+lùi được mọi thay đổi từ lần lưu gần nhất; gõ liền tay trong 0,6 giây tính là một bước). Nhớ tab
+đang mở trong máy.
 
-1. **Thông tin** (đổi tên từ "Thông tin đại lý", chủ dự án duyệt trên Figma 30-10-2026) — tên cột
-   **Cỡ chữ · Căn lề · Cách dưới** ghi một lần ở đầu; mỗi dòng của §5 `header` là một hàng:
-   nút **con mắt** (mở = hiện, gạch chéo = ẩn; `aria-pressed`, tooltip
-   "Đang hiện – bấm để ẩn") · nhãn + ô nhập (dòng ẩn có nhãn "Đang ẩn") ·
-   **Cỡ chữ** (ô gọn ["Cỡ" | số, bước 0,5, 5–30 | "pt"]) · **Căn lề** (ba ô Trái / Giữa / Phải
-   cùng kiểu ô căn 3×3, phím ← / →) · **Cách dưới** (ô gọn [biểu tượng khoảng cách dọc | số, bước
-   0,5, 0–20 | "pt"]). Hàng "Nhãn trước tên" chỉ có Cỡ chữ, thay hai ô kia bằng chữ "Chung dòng
-   với tên đại lý". Số điện thoại là một ô chữ như Địa chỉ. Hàng cuối "Thứ, ngày": ô lịch cố định
-   thay con mắt, nhãn "Luôn in", không nhập được (tự động), có đủ Cỡ chữ / Căn lề / Cách dưới (tới
-   bảng). Thẻ hẹp (< 660px) thì bỏ tên cột, ba ô xuống hàng dưới ô nhập. Không có dòng Fax, ghi
-   chú dưới "Tư".
-2. **Đài cần in** — radio "Tất cả đài quay trong ngày" | "Chọn đài theo thứ".
-   Mỗi thứ một hàng; các đài là thẻ ngang theo thứ tự cột trên phiếu (số 1, 2, 3…),
-   mỗi thẻ có tay nắm ⋮⋮ + ô chọn + tên. **Kéo thả** để đổi thứ tự (chỉ trong cùng
-   một thứ; thẻ đang kéo mờ, chỗ thả viền màu nhấn); bàn phím: Tab tới tay nắm, ← / →.
-   Chế độ "Tất cả" thì khoá cả bảng. Mục mở rộng "Tên viết tắt in trên phiếu (21 đài)".
-3. **Bản in** — khổ & định dạng mặc định; **Kích thước phiếu**: hai ô gọn "Rộng" / "Cao" (cm).
-   Mỗi ô có thể là **Auto** (hiện chữ "Auto" thay cho số, lấy mức tối đa vừa khổ giấy;
-   `cardWidthCm` / `cardHeightCm` = null): về Auto bằng nhấp đúp chữ "Rộng"/"Cao", xoá trống hoặc
-   gõ "auto"; gõ số là cố định; đang Auto bấm ↑/↓ hay kéo thì bắt đầu từ mức tối đa. Mặc định rộng
-   8 cm, cao Auto. Tối đa hiện làm tròn 0,1 cm; layout bỏ qua phần nhỉnh ≤ 28 twip do làm tròn; **Khoảng cách giữa các phiếu**: hai ô gọn có biểu tượng,
-   ngang (giữa 2 cột) và dọc (giữa 2 hàng). Ô gọn kiểu Figma: gõ số, ↑/↓ (Shift ×10), kéo chuột
-   trên phần đầu ô để chỉnh nhanh;
-   **vị trí cụm phiếu trên trang** (ba hình trang giấy nhỏ Trái / Giữa / Phải, vẽ theo khổ giấy
-   mặc định: A4 2×2, A5 ngang 2 phiếu, A6 1 phiếu; phím mũi tên để đổi), **Font chữ & cỡ số**
-   (một hàng: chọn font trong danh sách font đã cài trên máy + ô gọn **Cỡ** (pt, bước 0,5, 8–30)
-   hoạt động như ô Rộng / Cao: Auto = lớn nhất vừa phiếu, nhấp đúp chữ "Cỡ", xoá số hoặc gõ "auto" để
-   về Auto, đang Auto bấm ↑/↓ hay kéo thì bắt đầu từ cỡ đang dùng; gợi ý ghi cỡ số đang dùng, cỡ đặt
-   to quá thì ghi cỡ đã hạ; font đã lưu mà máy không có thì ghi "(máy chưa cài)" và cảnh báo); mục
-   **Chữ trong bảng**: hai dòng **Chữ** (Giải, tên giải, tên đài) và **Số kết quả**, mỗi dòng có
-   Padding (hai ô gọn ngang / dọc, cm, bước 0,05) và **Align** (ô 3×3 chọn 1 trong 9 vị trí, kiểu
-   Figma, dùng được phím mũi tên).
-4. **Máy in** — máy in mặc định (danh sách máy in đã cài + nút tìm lại), số bản in mặc
-   định, "In nhanh, bỏ qua bước xem trước" (chỉ khi đã chọn máy in).
-5. **Lưu file** — thư mục lưu + "Chọn…", tên file ví dụ.
-6. Thanh cuối, ba phần không xuống dòng: trái là nhóm **Cấu hình** với hai nút biểu tượng nhập /
-   xuất file .conf (xuất đúng những gì đang hiện, kể cả thay đổi chưa lưu) + phiên bản; giữa là
-   thông báo (co giãn, tự xuống dòng); phải luôn là "Khôi phục mặc định" · **Lưu cài đặt**
-   (báo "Đã lưu cài đặt"). Rời màn khi chưa lưu → hộp hỏi với ba nút **Ở lại** (focus sẵn,
-   Esc) · **Bỏ thay đổi** · **Lưu rồi quay lại**. Lưu lỗi thì báo ngay trong hộp. Đóng hộp là
-   mất lỗi, lần sau mở lại không còn lỗi cũ.
+**Tab Phiếu** là trình sửa một phiếu kiểu Figma, ba cột:
+- Trái (248 px) **Thành phần**: cây Phiếu › Đầu phiếu (Dòng 1: Label + Text; Dòng 2, Dòng 3: Text;
+  Thứ, ngày có ổ khoá) › Bảng kết quả (Hàng tiêu đề, Tên giải, Số kết quả). Mũi tên thu gọn / mở
+  nhóm; con mắt ẩn / hiện dòng (nhóm Dòng 1 đổi cả Label lẫn Text). Bàn phím như cây thư mục:
+  ↑/↓, ←/→ (thu gọn / mở, lên nhóm cha), Home / End, Esc bỏ chọn.
+- Giữa: phiếu xem trước (như cũ: kết quả tải gần nhất hoặc mẫu 26-10-2026, phóng to / thu nhỏ). Rê
+  chuột lên phiếu thì phần bên dưới có viền mảnh; bấm để chọn, viền đậm màu nhấn kèm nhãn tên phần,
+  cây đánh dấu theo. Bấm một dòng đầu phiếu chọn cả nhóm Dòng. Bấm ra nền hoặc Esc thì bỏ chọn.
+  Trang HTML xem trước bật `parts` (`data-part` cho từng phần); viền vẽ ngoài iframe. Dưới phiếu ghi
+  khổ, cỡ phiếu, cỡ số đang dùng, ngày của số.
+- Phải (300 px) **Thuộc tính** của phần đang chọn, đầu cột có biểu tượng, tên, loại, con mắt (dòng):
+  - Không chọn gì: Khổ giấy mặc định, Khoảng cách giữa các phiếu, Vị trí cụm phiếu trên trang.
+  - Phiếu: Rộng / Cao (Auto như cũ, gợi ý mức tối đa), Font chữ (font đã cài, "máy chưa cài").
+  - Dòng 1–3: Căn lề + khoảng cách tới dòng dưới (của cả dòng). Label / Text: ô Chữ + Cỡ chữ.
+  - Thứ, ngày: chữ tự động (không sửa), Cỡ, Căn lề, khoảng cách tới bảng.
+  - Hàng tiêu đề: tên viết tắt các đài trên phiếu đang xem, "Sửa cả 21 đài…" mở đủ danh sách.
+  - Tên giải / Số kết quả: ô căn 3×3 + padding ngang / dọc; Số kết quả thêm Cỡ số (Auto như cũ).
+  Cửa sổ hẹp (≤ 1100 px) hai cột bên còn 200 / 264 px.
 
-Cửa sổ hẹp (≤ 960px, cột trái < ~600px): các cặp mục hai cột trong thẻ xếp thành một cột; "Chữ
-trong bảng" đưa tên dòng lên hàng riêng. Không có thanh cuộn ngang ở cỡ tối thiểu 900×640.
+**Tab Chung**: cột thẻ rộng tối đa 904 px ở giữa, thu gọn / mở rộng được như cũ: **Đài cần in**
+(không còn mục tên viết tắt), **Máy in**, **Lưu file** (thêm **Định dạng mặc định** PDF / Word / Cả
+hai ở đầu thẻ).
+
+Đợt sau (đã duyệt, chưa làm): màu riêng từng thành phần; từng hàng giải (cỡ ± pt, màu số, màu tên
+giải, đậm / nghiêng / gạch chân, nền); cỡ chữ "Giải" / tên giải; Label cho Dòng 2, Dòng 3; dòng tự
+do (nhóm Label + Text) ở đầu và cuối phiếu, tối đa 5 dòng mỗi phần, kéo đổi thứ tự.
+
+**Thanh cuối**, ba phần không xuống dòng: trái là nhóm **Cấu hình** với hai nút biểu tượng nhập /
+xuất file .conf (xuất đúng những gì đang hiện, kể cả thay đổi chưa lưu) + phiên bản; giữa là
+thông báo (co giãn, tự xuống dòng); phải luôn là "Khôi phục mặc định" · **Lưu cài đặt**
+(báo "Đã lưu cài đặt"). Rời màn khi chưa lưu → hộp hỏi với ba nút **Ở lại** (focus sẵn,
+Esc) · **Bỏ thay đổi** · **Lưu rồi quay lại**. Lưu lỗi thì báo ngay trong hộp. Đóng hộp là
+mất lỗi, lần sau mở lại không còn lỗi cũ.
+
+Cửa sổ hẹp (≤ 960px): các cặp mục hai cột trong thẻ tab Chung xếp thành một cột. Không có thanh
+cuộn ngang ở cỡ tối thiểu 900×640.
 
 Yêu cầu chung: có `label`, `aria-*` đúng, tương phản chữ ≥ 4.5:1. **Ô nhập / ô chọn cao 36px**
 (chủ dự án chốt 29-10-2026, lấy theo ô số gọn); nút đứng cạnh ô nhập (Chọn…, xoá số, tìm lại máy

@@ -1,8 +1,7 @@
-import { STATIONS } from '../../../../core/stations'
 import { StationPicker } from '../../components/StationPicker'
 import type { DraftProps } from '../../useSettingsDraft'
 
-/** Thẻ Đài cần in: tất cả đài hay chọn theo thứ, kèm tên viết tắt in trên phiếu. */
+/** Thẻ Đài cần in: tất cả đài hay chọn theo thứ (tên viết tắt sửa ở tab Phiếu, Hàng tiêu đề). */
 export function StationsSection({ draft, setDraft }: DraftProps) {
   return (
     <>
@@ -31,34 +30,8 @@ export function StationsSection({ draft, setDraft }: DraftProps) {
         locked={draft.stations.mode === 'all'}
         onChange={(day, list) => setDraft((d) => { d.stations.byWeekday[day] = list })}
       />
-      <ShortNames draft={draft} setDraft={setDraft} />
+      <p className="hint">Tên viết tắt in trên phiếu sửa ở tab Phiếu: chọn Hàng tiêu đề trong cây thành phần.</p>
     </>
   )
 }
 
-/** Tên viết tắt in trên phiếu; gõ lại đúng tên mặc định thì bỏ tên riêng. */
-function ShortNames({ draft, setDraft }: DraftProps) {
-  return (
-    <details className="short-names">
-      <summary>Tên viết tắt in trên phiếu ({STATIONS.length} đài)</summary>
-      <div className="short-grid">
-        {STATIONS.map((st) => (
-          <label key={st.slug} className="short-item">
-            <span>{st.name}</span>
-            <input
-              className="input small"
-              value={draft.stations.shortNames[st.slug] ?? st.short}
-              placeholder={st.short}
-              onChange={(e) => setDraft((d) => {
-                const v = e.target.value
-                if (v.trim() === st.short) delete d.stations.shortNames[st.slug]
-                else d.stations.shortNames[st.slug] = v
-              })}
-            />
-          </label>
-        ))}
-      </div>
-      <p className="hint">Để trống thì dùng tên viết tắt mặc định.</p>
-    </details>
-  )
-}

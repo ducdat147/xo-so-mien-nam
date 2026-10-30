@@ -149,3 +149,30 @@ export const Chevron = () => (
     <path d="M6 9l6 6 6-6" />
   </svg>
 )
+
+// Trình sửa phiếu (cây thành phần, cột Thuộc tính): 16 px, cùng nét với bản Figma "Trình sửa phiếu"
+
+const icon16 = (d: string) => {
+  const Icon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" {...base}>
+      <path d={d} />
+    </svg>
+  )
+  return Icon
+}
+
+export const IconReceipt = icon16('M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2zM9 8h6M9 12h6')
+export const IconPanelTop = icon16('M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM3 9h18')
+export const IconTable = icon16('M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM3 9h18M3 15h18M9 3v18')
+export const IconRows = icon16('M4 8h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM3 4h18M3 20h18')
+export const IconTag = icon16('M3 3h8l10 10-8 8L3 11zM7.5 7.5h.01')
+export const IconHash = icon16('M4 9h16M4 15h16M10 3 8 21M16 3l-2 18')
+export const IconType = icon16('M4 7V4h16v3M9 20h6M12 4v16')
+export const IconPage = icon16('M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6')
+export const IconLine = icon16('M4 7h14M4 12h9M4 17h12')
+export const IconLock = icon16('M7 11h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zM8 11V7a4 4 0 0 1 8 0v4')
+export const IconCalendar = icon16('M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM16 3v4M8 3v4M3 10h18')
+export const IconUndo = icon16('M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11')
+export const IconRedo = icon16('m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13')
+export const IconEye = icon16('M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z')
+export const IconEyeOff = icon16('M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18')

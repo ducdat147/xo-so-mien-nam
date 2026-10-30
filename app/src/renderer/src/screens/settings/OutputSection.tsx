@@ -1,10 +1,11 @@
 import { todayVN } from '../../../../core/dates'
 import { outputBaseName } from '../../../../core/sheet'
 import { api } from '../../api'
-import { FILE_EXT } from '../../labels'
+import { Segmented } from '../../components/controls'
+import { FILE_EXT, FORMAT_OPTIONS } from '../../labels'
 import type { DraftProps } from '../../useSettingsDraft'
 
-/** Thẻ Lưu file: thư mục lưu và ví dụ tên file. */
+/** Thẻ Lưu file: định dạng mặc định, thư mục lưu và ví dụ tên file. */
 export function OutputSection({ draft, setDraft }: DraftProps) {
   const chooseDir = async () => {
     const dir = await api.chooseOutputDir(draft.output.dir)
@@ -15,6 +16,10 @@ export function OutputSection({ draft, setDraft }: DraftProps) {
 
   return (
     <>
+      <div className="half">
+        <Segmented id="l-dd" label="Định dạng mặc định" options={FORMAT_OPTIONS} value={draft.print.format}
+          onChange={(v) => setDraft((d) => { d.print.format = v })} variant="plain" />
+      </div>
       <div className="field">
         <label htmlFor="f-dir" className="field-label">Thư mục lưu</label>
         <div className="row">

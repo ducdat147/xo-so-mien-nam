@@ -12,7 +12,7 @@ import { useSettingsDraft } from './useSettingsDraft'
 type Screen = 'results' | 'settings'
 
 export function App() {
-  const { settings, draft, version, error, saving, dirty, setDraft, replaceDraft, discardDraft, applyQuick, save } =
+  const { settings, draft, version, error, saving, dirty, setDraft, replaceDraft, discardDraft, applyQuick, save, history } =
     useSettingsDraft()
   const [screen, setScreen] = useState<Screen>('results')
   const [confirmLeave, setConfirmLeave] = useState(false)
@@ -63,6 +63,8 @@ export function App() {
           onSave={save}
           lastResult={lastResult}
           version={version}
+          history={history}
+          active={inSettings && !confirmLeave}
         />
       </div>
 

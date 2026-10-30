@@ -41,6 +41,19 @@ describe('renderHtml', () => {
     expect(count(html, /<section class="card">/g)).toBe(1)
   })
 
+  it('đánh dấu từng phần cho trình sửa phiếu chỉ khi bật parts', () => {
+    const { layout } = buildSheet(agentSettings(), day26, { date: D26, paper: 'A4', blank: false })
+    const marked = renderHtml(layout, { mode: 'card', parts: true })
+    expect(marked).toContain('<div class="page" data-part="card">')
+    for (const p of ['line-name', 'line-addr', 'line-contact', 'line-date', 'table', 'hdr']) {
+      expect(count(marked, new RegExp(`data-part="${p}"`, 'g'))).toBe(1)
+    }
+    expect(count(marked, /data-part="labels"/g)).toBe(9)
+    expect(count(marked, /data-part="numbers"/g)).toBe(9 * layout.stations.length)
+    expect(renderHtml(layout, { mode: 'card' })).not.toContain('data-part')
+    expect(renderHtml(layout)).not.toContain('data-part')
+  })
+
   it('dòng đầu phiếu không căn giữa thì có text-align riêng', () => {
     const s = agentSettings()
     s.header.contact.align = 'left'

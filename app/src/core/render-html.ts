@@ -9,7 +9,12 @@ export interface HtmlOptions {
   /** sheet = cả trang in; card = một phiếu (xem trước ở màn Cài đặt). */
   mode?: 'sheet' | 'card'
   docTitle?: string
+  /** Gắn data-part cho từng phần của phiếu (trình sửa phiếu bấm chọn được); bản in không cần. */
+  parts?: boolean
 }
+
+/** ` data-part="…"` khi bật đánh dấu phần, rỗng khi không. */
+const partAttr = (on: boolean, part: string) => (on ? ` data-part="${part}"` : '')
 
 /**
  * font-family cho font máy: tên font (trong nháy đơn) + họ font chung làm dự phòng khi máy
@@ -33,7 +38,7 @@ const pt = (tw: number) => `${Number((tw / 20).toFixed(2))}pt`
 /** half-point → "13.5pt" */
 const hp = (size: number) => `${size / 2}pt`
 
-function headerHtml(l: SheetLayout, withIndent: boolean): string {
+function headerHtml(l: SheetLayout, withIndent: boolean, parts: boolean): string {
   const { left, right } = withIndent ? l.header.indent : { left: 0, right: 0 }
   const pad = left || right ? ` style="padding-left:${pt(left)};padding-right:${pt(right)}"` : ''
   if (!l.header.lines.length) return `<div class="head"${pad}><div style="height:${pt(SPACER_H)}"></div></div>`
@@ -42,19 +47,19 @@ function headerHtml(l: SheetLayout, withIndent: boolean): string {
       const maxSize = Math.max(...line.runs.map((r) => r.size))
       const runs = line.runs.map((r) => `<span style="font-size:${hp(r.size)}">${htmlEscape(r.text)}</span>`).join('')
       const align = line.align === 'center' ? '' : `;text-align:${line.align}`
-      return `<p style="font-size:${hp(maxSize)};line-height:${pt(line.lineH)};margin-bottom:${pt(line.after)}${align}">${runs}</p>`
+      return `<p${partAttr(parts, `line-${line.id}`)} style="font-size:${hp(maxSize)};line-height:${pt(line.lineH)};margin-bottom:${pt(line.after)}${align}">${runs}</p>`
     })
     .join('')
   return `<div class="head"${pad}>${lines}</div>`
 }
 
-function tableHtml(l: SheetLayout): string {
+function tableHtml(l: SheetLayout, parts: boolean): string {
   const t = l.table
   const cols = `grid-template-columns:${pt(t.labW)}${` ${pt(t.stW)}`.repeat(l.stations.length)}`
   const jc = l.cardAlign === 'center' ? 'margin-left:auto;margin-right:auto' : l.cardAlign === 'right' ? 'margin-left:auto' : ''
   const [hdr, ...prizeRows] = t.rows
 
-  let rows = `<div class="tr" style="height:${pt(hdr.height)};${cols}">`
+  let rows = `<div class="tr"${partAttr(parts, 'hdr')} style="height:${pt(hdr.height)};${cols}">`
   rows += `<div class="td hd t-text"><p style="font-size:${hp(LABEL_SIZE)}">${hdr.label}</p></div>`
   for (const st of l.stations) {
     rows += `<div class="td hd t-text"><p style="font-size:${hp(t.stationSize)}">${htmlEscape(st.short)}</p></div>`
@@ -67,21 +72,21 @@ function tableHtml(l: SheetLayout): string {
     rows += `<div class="tr" style="height:${pt(row.height)};${cols}">`
     const labStyle = isDb ? `font-size:${hp(DB_LABEL_SIZE)}` : `font-size:${hp(LABEL_SIZE)};margin-bottom:${pt(LABEL_AFTER)}`
     const lab = `<p style="${labStyle}">${row.label}</p>`
-    rows += `<div class="td lab t-text">${lab}</div>`
+    rows += `<div class="td lab t-text"${partAttr(parts, 'labels')}>${lab}</div>`
     const numStyle = isDb
       ? `font-size:${hp(t.dbSize)};line-height:${pt(t.dbLine)}`
       : `font-size:${hp(t.numberSize)};line-height:${pt(t.numberLine)}`
     for (const st of l.stations) {
       const nums = st.prizes[k].map((n) => `<p style="${numStyle}">${htmlEscape(n)}</p>`).join('')
-      rows += `<div class="td n-text${isDb ? ' db' : ''}">${nums}</div>`
+      rows += `<div class="td n-text${isDb ? ' db' : ''}"${partAttr(parts, 'numbers')}>${nums}</div>`
     }
     rows += '</div>'
   })
-  return `<div class="tbl" style="width:${pt(t.width)};${jc}">${rows}</div>`
+  return `<div class="tbl"${partAttr(parts, 'table')} style="width:${pt(t.width)};${jc}">${rows}</div>`
 }
 
-function cardHtml(l: SheetLayout, withIndent: boolean): string {
-  return `<section class="card">${headerHtml(l, withIndent)}${tableHtml(l)}</section>`
+function cardHtml(l: SheetLayout, withIndent: boolean, parts = false): string {
+  return `<section class="card">${headerHtml(l, withIndent, parts)}${tableHtml(l, parts)}</section>`
 }
 
 const JUSTIFY = { top: 'flex-start', center: 'center', bottom: 'flex-end' } as const
@@ -130,7 +135,7 @@ export function renderHtml(l: SheetLayout, opts: HtmlOptions = {}): string {
   const mode = opts.mode ?? 'sheet'
   let body: string
   if (mode === 'card') {
-    body = `<div class="page">${cardHtml(l, false)}</div>`
+    body = `<div class="page"${partAttr(!!opts.parts, 'card')}>${cardHtml(l, false, !!opts.parts)}</div>`
   } else {
     const cols: string[] = []
     for (let c = 0; c < l.ncol; c++) {
