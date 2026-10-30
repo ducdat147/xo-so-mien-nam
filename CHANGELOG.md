@@ -8,9 +8,7 @@
 
 Mỗi lần phát hành, thêm một mục mới lên trên cùng.
 
-## Chưa phát hành
-
-Đổi tiêu đề mục này thành số phiên bản mới (ví dụ `## 1.1.0 — <ngày>`) khi phát hành.
+## 1.1.0 — 30-10-2026
 
 - Bấm In giờ mở bước **Xem trước khi in**: trang in đúng như ra giấy, chọn máy in và số tờ ngay
   trong đó. Chạy được cả trên máy chưa cài máy in (khi đó gợi ý lưu PDF).
@@ -55,6 +53,14 @@ Mỗi lần phát hành, thêm một mục mới lên trên cùng.
 - Bỏ bản dòng lệnh bash (`cli/`); app là bản duy nhất.
 - Bỏ dòng **Fax** và **ghi chú dưới chữ "Tư"** khỏi phiếu và màn Cài đặt. Dòng liên hệ chỉ còn các
   số điện thoại (DĐ). Nhập `xsmn.conf` có `AGENT_FAX` / `NOTE` thì hai khoá này được báo bỏ qua.
+- Thẻ "Thông tin đại lý" đổi tên thành **Thông tin**. Mỗi dòng đầu phiếu chỉnh được **căn lề**
+  (trái / giữa / phải) và **khoảng cách tới dòng dưới** (pt), bên cạnh cỡ chữ.
+- Chữ đầu phiếu in **đúng như đã gõ**: phiếu không tự thêm "ĐC: " trước địa chỉ hay "DĐ: " trước số
+  điện thoại. Số điện thoại chỉ còn một ô, bỏ "+ Thêm số". Cài đặt cũ tự chuyển (địa chỉ thêm
+  "ĐC: ", các số ghép thành một dòng) nên phiếu in ra không đổi.
+- Dòng **thứ, ngày** luôn in, bỏ nút ẩn; vẫn chỉnh cỡ chữ, căn lề, khoảng cách tới bảng.
+- File .conf xuất ra có `CONF_VERSION=2` và các khoá mới `AGENT_CONTACT`, `…_ALIGN`, `…_AFTER_PT`.
+  File cũ (cả `xsmn.conf` của bản dòng lệnh) vẫn nhập được.
 
 ## 1.0.0 — 28-10-2026
 
