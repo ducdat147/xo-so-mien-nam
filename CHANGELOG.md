@@ -8,7 +8,7 @@
 
 Mỗi lần phát hành, thêm một mục mới lên trên cùng.
 
-## Chưa phát hành
+## 1.2.0 — 30-10-2026
 
 - Màn **Cài đặt** chia hai tab. Tab **Phiếu** là trình sửa phiếu kiểu Figma: bên trái là danh sách
   các phần của phiếu, ở giữa là phiếu (bấm vào phần nào thì chọn phần đó), bên phải là các ô chỉnh.
